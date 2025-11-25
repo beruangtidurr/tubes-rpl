@@ -3,7 +3,6 @@
 import { useRouter, usePathname } from 'next/navigation';
 import Image from "next/image";
 import dummyImage from "@/app/dummy-post-horisontal.jpg"
-import { handleClientScriptLoad } from 'next/script';
 
 interface CourseCardProps {
   title: string;
