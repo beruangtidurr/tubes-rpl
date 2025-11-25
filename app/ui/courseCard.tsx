@@ -11,7 +11,7 @@ export default function CourseCard({ title, desc }: CourseCardProps) {
   return (
     // Card Container: Use w-full (100%) for mobile, but limit size on larger screens
     // The min-h-[250px] ensures a minimum height, but we remove the fixed h-60
-    <div className="p-4 rounded-xl shadow-xl w-full lg:w-[180px] bg-[#ECECEC] min-h-[80px] xl:w-[320px] flex flex-col 
+    <div className="p-4 rounded-xl shadow-xl w-full lg:w-[180px] bg-[#ECECEC] min-h-20 xl:w-[320px] flex flex-col 
       hover:bg-gray-300 hover:shadow-2xl hover:cursor-pointer transition duration-300 ease-in-out">
       
       {/* Image Container: Uses aspect-ratio and relative positioning */}
