@@ -1,3 +1,7 @@
+import Image from "next/image";
+import dummyImage from "@/app/dummy-post-horisontal.jpg"
+import AssignmentContainer from "@/app/ui/assignmentContainer";
+
 export default async function CoursePage({ 
   params 
 }: { 
@@ -19,9 +23,11 @@ export default async function CoursePage({
       </div> */}
 
       {/* Header */}
-      <div className="border-b border-gray-300 pb-3 mb-4">
+      <div className="border-b border-gray-300 pb-3 mb-4">        
+        <Image src={dummyImage} alt="dummy"/>
         <h2 className="text-2xl font-bold text-gray-800">{courseTitle} Course</h2>
       </div>
+      <AssignmentContainer/>
     </div>
   );
 }
