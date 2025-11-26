@@ -20,43 +20,53 @@ const slugify = (text: string) => {
 
 export default function CourseCard({ title, desc }: CourseCardProps) {
   const router = useRouter();
-    const pathname = usePathname();
+  const pathname = usePathname();
+
+  const slug = slugify(title);
+  const targetPath = `/course/${slug}`;
   
-    const slug = slugify(title);
-    const targetPath = `/course/${slug}`;
-    
-    // Check if this card's route is currently active
-    const isActive = pathname === targetPath;
-  
-    const handleCardClick = () => {
-      router.push(targetPath);
-    };
-  
+  const isActive = pathname === targetPath;
+
+  const handleCardClick = () => {
+    router.push(targetPath);
+  };
+
   return (
-    // Card Container: Use w-full (100%) for mobile, but limit size on larger screens
-    // The min-h-[250px] ensures a minimum height, but we remove the fixed h-60
     <div 
-    onClick={handleCardClick}
-    className="p-4 rounded-xl shadow-xl w-full lg:w-[180px] bg-[#ECECEC] min-h-20 xl:w-[320px] flex flex-col 
-      hover:bg-gray-300 hover:shadow-2xl hover:cursor-pointer transition duration-300 ease-in-out">
-      
-      {/* Image Container: Uses aspect-ratio and relative positioning */}
+      onClick={handleCardClick}
+      className={`
+        p-4 rounded-xl shadow-lg transition-all duration-300 ease-in-out
+        cursor-pointer flex flex-col
+        ${isActive 
+          ? 'bg-blue-500 text-white shadow-xl scale-105' 
+          : 'bg-[#ECECEC] hover:bg-gray-300 hover:shadow-xl'
+        }
+      `}
+    >
+      {/* Image Container */}
       <div className="relative w-full mb-3 rounded-lg overflow-hidden aspect-video">
         <Image 
           src={dummyImage} 
-          // key property tells Next.js to scale the image flexibly within its parent container
-          // and maintain aspect ratio.
           fill
           alt={`Image for ${title}`}
-          sizes="(max-width: 640px) 100vw, 300px" // Responsive sizes hint for optimization
-          className="object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
+          className="object-cover transition-transform duration-300 ease-in-out hover:scale-105"
         />
       </div>
 
-      <div className="lg:text-sm font-semibold leading-tight mb-1 truncate">
+      {/* Title */}
+      <h3 className={`
+        text-base font-semibold leading-tight mb-1 line-clamp-1
+        ${isActive ? 'text-white' : 'text-gray-900'}
+      `}>
         {title}
-      </div>
-      <p className="text-gray-600 text-sm line-clamp-2">
+      </h3>
+      
+      {/* Description */}
+      <p className={`
+        text-sm line-clamp-2
+        ${isActive ? 'text-blue-100' : 'text-gray-600'}
+      `}>
         {desc}
       </p>
     </div>
