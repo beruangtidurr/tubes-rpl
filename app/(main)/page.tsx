@@ -3,9 +3,7 @@
 
 import { useEffect, useState } from "react";
 import CardContainer from "@/app/ui/cardContainer";
-import CourseDetail from "@/app/ui/courseDetail";
 import { useChat } from "@/app/context/ChatContext";
-import { useCourse } from "@/app/context/CourseContext";
 
 type CurrentUser = {
   id: number;
@@ -17,7 +15,6 @@ type CurrentUser = {
 export default function Home() {
   const [user, setUser] = useState<CurrentUser>(null);
   const { selectedChat, setSelectedChat } = useChat();
-  const { selectedCourse } = useCourse();
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -31,7 +28,7 @@ export default function Home() {
     window.location.href = "/login";
   }
 
-  // Kalau ada chat yang dipilih, tampilkan chat box
+  // If chat selected → show chat view
   if (selectedChat) {
     return (
       <div className="flex flex-col grow justify-center font-sans p-4">
@@ -54,7 +51,7 @@ export default function Home() {
         <div className="bg-white rounded-lg shadow p-6 h-full flex flex-col">
           <div className="flex-1 overflow-y-auto mb-4 space-y-4">
             <div className="bg-blue-100 p-3 rounded-lg">
-              <p className="text-sm text-gray-800">Pesan dari anggota kelompok...</p>
+              <p className="text-sm text-gray-800">Pesan dari anggota...</p>
             </div>
             <div className="bg-gray-100 p-3 rounded-lg ml-auto max-w-xs">
               <p className="text-sm text-gray-800">Pesan kamu...</p>
@@ -75,12 +72,7 @@ export default function Home() {
     );
   }
 
-  // Kalau ada course yang dipilih, tampilkan detail course
-  if (selectedCourse) {
-    return <CourseDetail />;
-  }
-
-  // Default: tampilkan My Course
+  // Default: My Course
   return (
     <div className="flex flex-col grow justify-center font-sans p-4">
       <div className="flex justify-between items-center mb-6">
@@ -99,6 +91,7 @@ export default function Home() {
           Logout
         </button>
       </div>
+
       <CardContainer />
     </div>
   );
