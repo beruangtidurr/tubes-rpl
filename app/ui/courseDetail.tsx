@@ -79,7 +79,7 @@ export default function CourseDetail() {
         <Image
           src={dummyImage}
           alt={selectedCourse.title}
-          width={800}
+          width={300}
           height={200}
           className="object-cover rounded-lg"
         />
