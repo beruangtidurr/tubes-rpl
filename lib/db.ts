@@ -1,3 +1,5 @@
+//lib/db.ts
+
 import postgres from "postgres";
 
 const connectionString = process.env.DATABASE_URL;

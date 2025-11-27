@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
-import ChatContainer from '../ui/chatContainer';
+import ChatContainer from '@/app/ui/chatContainer';
 
 export default function ChatLayout({
   children,
