@@ -24,7 +24,17 @@ export default function ChatCard({ title, team }: ChatCardProps) {
   const isActive = selectedChat?.slug === slug;
 
   const handleCardClick = () => {
+<<<<<<< HEAD
     setSelectedChat({ title, team, slug });
+=======
+    // If the card is already active (clicked again), navigate to the root path ('/')
+    if (isActive) {
+      router.push('/');
+    } else {
+      // Otherwise, navigate to the chat path
+      router.push(targetPath);
+    }
+>>>>>>> 2f568871f09fc23024fbd31bc270e66705f74a76
   };
 
   return (
