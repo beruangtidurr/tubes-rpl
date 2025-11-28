@@ -42,7 +42,7 @@ export default async function CourseDetailPage({ params }: Props) {
       {/* Course Content */}
       <div className="p-6">
         <h2 className="text-2xl font-bold mb-4">
-          {data.title} &gt; Assignment 1
+          {data.title}
         </h2>
 
         {/* Assignment Badge */}
