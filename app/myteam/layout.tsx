@@ -1,4 +1,4 @@
-// app/(main)/layout.tsx
+// app/myteam/layout.tsx
 import type { ReactNode } from "react";
 import Panel from "@/app/ui/panel";
 import Navbar from "@/app/ui/navbar";

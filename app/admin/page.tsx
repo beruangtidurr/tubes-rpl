@@ -15,6 +15,12 @@ type Student = {
   email: string;
 };
 
+type Lecturer = {
+  id: number;
+  name: string;
+  email: string;
+};
+
 type Enrollment = {
   id: number;
   user_id: number;
@@ -23,11 +29,21 @@ type Enrollment = {
   course_title: string;
 };
 
+type CourseAssignment = {
+  id: number;
+  lecturer_id: number;
+  course_id: number;
+  lecturer_name: string;
+  course_title: string;
+};
+
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"courses" | "students">("courses");
+  const [activeTab, setActiveTab] = useState<"courses" | "students" | "lecturers">("courses");
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [courseAssignments, setCourseAssignments] = useState<CourseAssignment[]>([]);
   
   // Course form state
   const [courseTitle, setCourseTitle] = useState("");
@@ -39,11 +55,18 @@ export default function AdminPage() {
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
 
+  // Lecturer assignment form state
+  const [selectedLecturerCourse, setSelectedLecturerCourse] = useState<number | null>(null);
+  const [selectedLecturer, setSelectedLecturer] = useState<number | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+
   // Fetch data
   useEffect(() => {
     fetchCourses();
     fetchStudents();
+    fetchLecturers();
     fetchEnrollments();
+    fetchCourseAssignments();
   }, []);
 
   async function handleLogout() {
@@ -63,10 +86,22 @@ export default function AdminPage() {
     setStudents(data.students || []);
   };
 
+  const fetchLecturers = async () => {
+    const res = await fetch("/api/admin/lecturers");
+    const data = await res.json();
+    setLecturers(data.lecturers || []);
+  };
+
   const fetchEnrollments = async () => {
     const res = await fetch("/api/admin/enrollments");
     const data = await res.json();
     setEnrollments(data.enrollments || []);
+  };
+
+  const fetchCourseAssignments = async () => {
+    const res = await fetch("/api/admin/course-assignments");
+    const data = await res.json();
+    setCourseAssignments(data.assignments || []);
   };
 
   const handleAddCourse = async (e: React.FormEvent) => {
@@ -131,6 +166,38 @@ export default function AdminPage() {
     }
   };
 
+  const handleAssignLecturer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLecturerCourse || !selectedLecturer) return;
+
+    setIsAssigning(true);
+
+    try {
+      const res = await fetch("/api/admin/course-assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: selectedLecturerCourse,
+          lecturerId: selectedLecturer,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Lecturer assigned successfully!");
+        setSelectedLecturerCourse(null);
+        setSelectedLecturer(null);
+        fetchCourseAssignments();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to assign lecturer");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const handleDeleteEnrollment = async (enrollmentId: number) => {
     if (!confirm("Are you sure you want to remove this enrollment?")) return;
 
@@ -150,16 +217,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteAssignment = async (assignmentId: number) => {
+    if (!confirm("Are you sure you want to remove this assignment?")) return;
+
+    try {
+      const res = await fetch(`/api/admin/course-assignments/${assignmentId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Assignment removed!");
+        fetchCourseAssignments();
+      } else {
+        alert("Failed to remove assignment");
+      }
+    } catch (err) {
+      alert("Network error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8">Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Logout
-        </button>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800">Admin Dashboard</h1>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Logout
+          </button>
+        </div>
 
         {/* Tab Navigation */}
         <div className="flex gap-4 mb-6 border-b">
@@ -182,6 +270,16 @@ export default function AdminPage() {
             }`}
           >
             Enroll Students
+          </button>
+          <button
+            onClick={() => setActiveTab("lecturers")}
+            className={`px-6 py-3 font-medium transition ${
+              activeTab === "lecturers"
+                ? "border-b-2 border-blue-500 text-blue-600"
+                : "text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            Assign Lecturers
           </button>
         </div>
 
@@ -323,6 +421,90 @@ export default function AdminPage() {
                       </div>
                       <button
                         onClick={() => handleDeleteEnrollment(enrollment.id)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Lecturers Tab */}
+        {activeTab === "lecturers" && (
+          <div className="space-y-6">
+            {/* Assign Lecturer Form */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold mb-4">Assign Lecturer to Course</h2>
+              <form onSubmit={handleAssignLecturer} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Course
+                  </label>
+                  <select
+                    value={selectedLecturerCourse || ""}
+                    onChange={(e) => setSelectedLecturerCourse(Number(e.target.value))}
+                    required
+                    className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Select Course --</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Lecturer
+                  </label>
+                  <select
+                    value={selectedLecturer || ""}
+                    onChange={(e) => setSelectedLecturer(Number(e.target.value))}
+                    required
+                    className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Select Lecturer --</option>
+                    {lecturers.map((lecturer) => (
+                      <option key={lecturer.id} value={lecturer.id}>
+                        {lecturer.name} ({lecturer.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isAssigning}
+                  className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 disabled:bg-gray-400"
+                >
+                  {isAssigning ? "Assigning..." : "Assign Lecturer"}
+                </button>
+              </form>
+            </div>
+
+            {/* Course Assignments List */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold mb-4">Current Assignments</h2>
+              {courseAssignments.length === 0 ? (
+                <p className="text-gray-500">No assignments yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {courseAssignments.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="flex justify-between items-center border rounded p-3"
+                    >
+                      <div>
+                        <span className="font-medium">{assignment.lecturer_name}</span>
+                        <span className="text-gray-500 mx-2">→</span>
+                        <span className="text-purple-600">{assignment.course_title}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteAssignment(assignment.id)}
                         className="text-red-500 hover:text-red-700 text-sm"
                       >
                         Remove
