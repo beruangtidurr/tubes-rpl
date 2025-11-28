@@ -1,19 +1,15 @@
 import sql from "@/lib/db";
-import Image from "next/image";
+import TeamSection from "@/app/courses/[slug]/TeamSection";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 export default async function CourseDetailPage({ params }: Props) {
-  // Await params in Next.js 15+
   const { slug } = await params;
-
-  // Convert slug back to title format
-  // "artificialintelligence" -> "artificial intelligence"
   const titleSearch = slug.replace(/([A-Z])/g, ' $1').trim().toLowerCase();
 
-  // Query by matching the title (case-insensitive, ignoring spaces)
+  // Query course
   const course = await sql`
     SELECT *
     FROM courses
@@ -32,6 +28,29 @@ export default async function CourseDetailPage({ params }: Props) {
 
   const data = course[0];
 
+  // Get teams and their members
+  const teams = await sql`
+    SELECT 
+      t.id,
+      t.name,
+      t.max_members,
+      COUNT(tm.id) as member_count,
+      json_agg(
+        json_build_object(
+          'id', tm.id,
+          'user_id', tm.user_id,
+          'user_name', tm.user_name,
+          'joined_at', tm.joined_at
+        )
+        ORDER BY tm.joined_at
+      ) FILTER (WHERE tm.id IS NOT NULL) as members
+    FROM teams t
+    LEFT JOIN team_members tm ON t.id = tm.team_id
+    WHERE t.course_id = ${data.id}
+    GROUP BY t.id, t.name, t.max_members
+    ORDER BY t.id
+  `;
+
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       {/* Course Header Image */}
@@ -41,51 +60,26 @@ export default async function CourseDetailPage({ params }: Props) {
 
       {/* Course Content */}
       <div className="p-6">
-        <h2 className="text-2xl font-bold mb-4">
-          {data.title}
-        </h2>
+        <h2 className="text-2xl font-bold mb-4">{data.title}</h2>
 
         {/* Assignment Badge */}
         <div className="inline-block bg-gray-200 px-4 py-2 rounded-full text-sm font-medium mb-6">
           Assignment
         </div>
 
-        {/* Kelompok Sections */}
+        {/* Teams Section */}
         <div className="space-y-3">
-          {[1, 2, 3].map((num) => (
-            <details key={num} className="border-b border-gray-200 pb-3">
-              <summary className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition list-none">
-                <span className="font-medium">Kelompok {num}</span>
-                <div className="flex items-center gap-2">
-                  {num === 2 && <span className="text-sm text-gray-500">3/5</span>}
-                  <svg 
-                    className="w-5 h-5 text-gray-600" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </summary>
-              
-              {num === 2 && (
-                <div className="mt-3 ml-4 space-y-2">
-                  {["John Doe", "John Doe", "John Doe"].map((name, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                      <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs">
-                        👤
-                      </div>
-                      <span>{name}</span>
-                      {idx === 0 && <span className="text-yellow-500">🟡</span>}
-                    </div>
-                  ))}
-                  <button className="mt-3 px-6 py-1.5 bg-blue-500 text-white text-sm rounded-full hover:bg-blue-600 transition">
-                    Submit
-                  </button>
-                </div>
-              )}
-            </details>
+          {teams.map((team) => (
+            <TeamSection
+              key={team.id}
+              team={{
+                id: team.id,
+                name: team.name,
+                maxMembers: team.max_members,
+                memberCount: parseInt(team.member_count),
+                members: team.members || [],
+              }}
+            />
           ))}
         </div>
 
