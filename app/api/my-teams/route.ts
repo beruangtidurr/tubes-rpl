@@ -37,17 +37,21 @@ export async function GET(req: NextRequest) {
     console.log("Fetching teams for user ID:", user.id);
 
     // Get all teams the current user is part of
+    // Now joining through assignments table since teams.assignment_id -> assignments.course_id
     const myTeams = await sql`
       SELECT 
         t.id as team_id,
         t.name as team_name,
         c.id as course_id,
-        c.title as course_title
+        c.title as course_title,
+        a.id as assignment_id,
+        a.title as assignment_title
       FROM team_members tm
       JOIN teams t ON tm.team_id = t.id
-      JOIN courses c ON t.course_id = c.id
+      JOIN assignments a ON t.assignment_id = a.id
+      JOIN courses c ON a.course_id = c.id
       WHERE tm.user_id = ${user.id}
-      ORDER BY c.title, t.name
+      ORDER BY c.title, a.title, t.name
     `;
 
     console.log("Found teams:", myTeams.length);
@@ -69,6 +73,8 @@ export async function GET(req: NextRequest) {
         return {
           course_id: team.course_id,
           course_title: team.course_title,
+          assignment_id: team.assignment_id,
+          assignment_title: team.assignment_title,
           team_id: team.team_id,
           team_name: team.team_name,
           members: members,
