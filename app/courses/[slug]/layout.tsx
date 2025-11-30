@@ -14,7 +14,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           <Navbar />
 
           <main className="p-8 bg-[#6ec0ff] grow flex flex-col">
-            <div className="grid grid-cols-[350px_1fr_300px] gap-6 grow">
+            <div className="grid grid-cols-[350px_1fr] gap-6 grow">
               {/* Calendar Column */}
               <div className="flex flex-col">
                 <Panel>
@@ -41,16 +41,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               <div className="flex flex-col">
                 <Panel>
                   <div className="text-gray-900 h-full">{children}</div>
-                </Panel>
-              </div>
-
-              {/* Chat List Column */}
-              <div className="flex flex-col">
-                <Panel>
-                  <div className="flex flex-col grow p-2 text-gray-900">
-                    <h2 className="text-2xl font-bold mb-4">Chat</h2>
-                    <ChatContainer />
-                  </div>
                 </Panel>
               </div>
             </div>

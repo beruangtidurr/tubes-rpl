@@ -1,20 +1,20 @@
 // app/(main)/layout.tsx
 import type { ReactNode } from "react";
 import Panel from "@/app/ui/panel";
-import Navbar from "@/app/ui/navbar";
+import NavbarAdmin from "@/app/ui/navbarAdmin";
 import ChatContainer from "@/app/ui/chatContainer";
 import { ChatProvider } from "@/app/context/ChatContext";
 import { CourseProvider } from "@/app/context/CourseContext";
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function LecturerLayout({ children }: { children: ReactNode }) {
   return (
     <ChatProvider>
       <CourseProvider>
         <div className="min-h-screen flex flex-col">
-          <Navbar />
+          <NavbarAdmin />
 
           <main className="p-8 bg-[#6ec0ff] grow flex flex-col">
-            <div className="grid grid-cols-[350px_1fr_300px] gap-6 grow">
+            <div className="grid grid-cols-[350px_1fr] gap-6 grow">
               {/* Calendar Column */}
               <div className="flex flex-col">
                 <Panel>
@@ -41,16 +41,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <div className="flex flex-col">
                 <Panel>
                   <div className="text-gray-900 h-full">{children}</div>
-                </Panel>
-              </div>
-
-              {/* Chat List Column */}
-              <div className="flex flex-col">
-                <Panel>
-                  <div className="flex flex-col grow p-2 text-gray-900">
-                    <h2 className="text-2xl font-bold mb-4">Chat</h2>
-                    <ChatContainer />
-                  </div>
                 </Panel>
               </div>
             </div>
