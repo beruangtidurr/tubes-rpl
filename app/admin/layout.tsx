@@ -12,7 +12,7 @@ export default function LecturerLayout({ children }: { children: ReactNode }) {
       <CourseProvider>
         <div className="min-h-screen flex flex-col">
           <NavbarAdmin />
-
+          
           <main className="p-8 bg-[#6ec0ff] grow flex flex-col">
             <div className="grid grid-cols-[350px_1fr] gap-6 grow">
               {/* Calendar Column */}
