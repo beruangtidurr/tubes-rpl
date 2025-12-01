@@ -6,18 +6,17 @@ import { useState, useEffect } from "react";
 function useCurrentUser() {
   const [user, setUser] = useState<{ id: number; fullName: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const response = await fetch("/api/auth/me");
         if (response.ok) {
           const data = await response.json();
-          // Match your API structure: { user: { id, name, email, role } }
           if (data.user) {
             setUser({
               id: data.user.id,
-              fullName: data.user.name
+              fullName: data.user.name,
             });
           } else {
             setUser(null);
@@ -32,16 +31,16 @@ function useCurrentUser() {
         setIsLoading(false);
       }
     };
-    
+
     fetchUser();
   }, []);
-  
+
   return { user, isLoading };
 }
 
 interface TeamMember {
   id: number;
-  user_id: string;
+  user_id: string; // backend sends string, keep it
   user_name: string;
   joined_at: string;
 }
@@ -104,12 +103,10 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
     try {
       const response = await fetch(`/api/teams/${teamId}/join`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           userId: user.id,
-          userName: user.fullName || user.username || "Unknown User"
+          userName: user.fullName || "Unknown User",
         }),
       });
 
@@ -118,7 +115,6 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         throw new Error(data.error || "Failed to join team");
       }
 
-      // Refresh teams after joining
       await fetchTeams();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to join team");
@@ -134,9 +130,7 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
     try {
       const response = await fetch(`/api/teams/${teamId}/leave`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),
       });
 
@@ -145,7 +139,6 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         throw new Error(data.error || "Failed to leave team");
       }
 
-      // Refresh teams after leaving
       await fetchTeams();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to leave team");
@@ -158,22 +151,25 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         onClick={() => setOpen(!open)}
         className="w-full flex justify-between items-center p-4 bg-gray-100 hover:bg-gray-200 transition"
       >
-        <span className="font-semibold text-left text-gray-800">{assignment.title}</span>
+        <span className="font-semibold text-left text-gray-800">
+          {assignment.title}
+        </span>
         <span className="text-gray-600 text-lg">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div className="p-6 bg-white">
-          {/* Assignment Description */}
           {assignment.description && (
             <p className="text-gray-700 text-sm mb-4">
               {assignment.description}
             </p>
           )}
 
-          {/* Assignment Info */}
           <div className="flex gap-4 text-xs text-gray-600 mb-6">
-            <span>📅 Created: {new Date(assignment.created_at).toLocaleDateString()}</span>
+            <span>
+              📅 Created:{" "}
+              {new Date(assignment.created_at).toLocaleDateString()}
+            </span>
             {assignment.num_teams && (
               <>
                 <span>👥 Teams: {assignment.num_teams}</span>
@@ -182,10 +178,11 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
             )}
           </div>
 
-          {/* Teams Section */}
           <div className="border-t pt-4">
-            <h4 className="text-lg font-semibold mb-3 text-gray-800">Available Teams</h4>
-            
+            <h4 className="text-lg font-semibold mb-3 text-gray-800">
+              Available Teams
+            </h4>
+
             {!user ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
                 Please log in to view and join teams.
@@ -211,6 +208,7 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
                     team={team}
                     onJoin={handleJoinTeam}
                     onLeave={handleLeaveTeam}
+                    currentUserId={user.id}
                   />
                 ))}
               </div>
@@ -222,21 +220,23 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
   );
 }
 
-// Team Card Component
 function TeamCard({
   team,
   onJoin,
   onLeave,
+  currentUserId,
 }: {
   team: Team;
   onJoin: (teamId: number) => void;
   onLeave: (teamId: number) => void;
+  currentUserId: number;
 }) {
-  const { user } = useCurrentUser();
   const [expanded, setExpanded] = useState(false);
+
   const isFull = team.memberCount >= team.maxMembers;
-  const currentUserId = user?.id;
-  const isUserInTeam = team.members?.some((m) => m.user_id === currentUserId);
+  const isUserInTeam = team.members?.some(
+    (m) => Number(m.user_id) === currentUserId // FIXED
+  );
 
   return (
     <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -248,8 +248,11 @@ function TeamCard({
           >
             {expanded ? "▼" : "▶"}
           </button>
+
           <div className="flex-1">
-            <h5 className="font-semibold text-base text-gray-800">{team.name}</h5>
+            <h5 className="font-semibold text-base text-gray-800">
+              {team.name}
+            </h5>
             <p className="text-xs text-gray-600 mt-1">
               {team.memberCount} / {team.maxMembers} members
             </p>
@@ -280,10 +283,15 @@ function TeamCard({
 
       {expanded && team.members && team.members.length > 0 && (
         <div className="border-t-2 border-gray-200 bg-white p-4">
-          <p className="text-sm font-semibold text-gray-700 mb-3">Team Members:</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">
+            Team Members:
+          </p>
           <ul className="space-y-2">
             {team.members.map((member) => (
-              <li key={member.id} className="text-sm text-gray-700 flex items-center gap-2 bg-gray-50 p-2 rounded">
+              <li
+                key={member.id}
+                className="text-sm text-gray-700 flex items-center gap-2 bg-gray-50 p-2 rounded"
+              >
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 <span className="font-medium">{member.user_name}</span>
                 <span className="text-gray-500 text-xs ml-auto">
