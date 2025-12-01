@@ -1,3 +1,5 @@
+//app/api/lecturer/assignments/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { cookies } from "next/headers";
@@ -44,6 +46,8 @@ export async function GET(req: NextRequest) {
         a.description,
         a.num_teams,
         a.max_members_per_team,
+        a.assignment_due_date,
+        a.grading_due_date,
         a.created_at,
         c.title as course_title,
         COUNT(DISTINCT t.id) as teams_created
@@ -75,13 +79,34 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { courseId, title, description, numTeams, maxMembersPerTeam } = await req.json();
+    const { 
+      courseId, 
+      title, 
+      description, 
+      numTeams, 
+      maxMembersPerTeam,
+      assignmentDueDate,
+      gradingDueDate
+    } = await req.json();
 
     if (!courseId || !title || !numTeams || !maxMembersPerTeam) {
       return NextResponse.json(
         { error: "Course ID, title, number of teams, and max members are required" },
         { status: 400 }
       );
+    }
+
+    // Validate dates if provided
+    if (assignmentDueDate && gradingDueDate) {
+      const assignmentDate = new Date(assignmentDueDate);
+      const gradingDate = new Date(gradingDueDate);
+      
+      if (gradingDate < assignmentDate) {
+        return NextResponse.json(
+          { error: "Grading due date must be after assignment due date" },
+          { status: 400 }
+        );
+      }
     }
 
     const courseCheck = await sql`
@@ -96,6 +121,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Ensure dates are properly formatted or null
+    const formattedAssignmentDueDate = assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null;
+    const formattedGradingDueDate = gradingDueDate ? new Date(gradingDueDate).toISOString() : null;
+
     const assignmentResult = await sql`
       INSERT INTO assignments (
         course_id, 
@@ -103,6 +132,8 @@ export async function POST(req: NextRequest) {
         description, 
         num_teams, 
         max_members_per_team,
+        assignment_due_date,
+        grading_due_date,
         created_by
       )
       VALUES (
@@ -111,6 +142,8 @@ export async function POST(req: NextRequest) {
         ${description || null}, 
         ${numTeams}, 
         ${maxMembersPerTeam},
+        ${formattedAssignmentDueDate},
+        ${formattedGradingDueDate},
         ${authCheck.userId}
       )
       RETURNING id

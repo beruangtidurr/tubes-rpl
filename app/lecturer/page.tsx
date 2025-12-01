@@ -16,6 +16,8 @@ type Assignment = {
   description: string;
   num_teams: number;
   max_members_per_team: number;
+  assignment_due_date: string | null;
+  grading_due_date: string | null;
   created_at: string;
   course_title: string;
   teams_created: number;
@@ -51,7 +53,14 @@ export default function LecturerPage() {
   const [assignmentDescription, setAssignmentDescription] = useState("");
   const [numTeams, setNumTeams] = useState(5);
   const [maxMembers, setMaxMembers] = useState(5);
+  const [assignmentDueDate, setAssignmentDueDate] = useState("");
+  const [gradingDueDate, setGradingDueDate] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Edit assignment state
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -105,9 +114,24 @@ export default function LecturerPage() {
       return;
     }
 
+    // Validate dates
+    if (assignmentDueDate && gradingDueDate) {
+      const assignmentDate = new Date(assignmentDueDate);
+      const gradingDate = new Date(gradingDueDate);
+      
+      if (gradingDate < assignmentDate) {
+        alert("Grading due date must be after assignment due date");
+        return;
+      }
+    }
+
     setIsCreating(true);
 
     try {
+      // Convert datetime-local strings to ISO format
+      const assignmentDueDateISO = assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null;
+      const gradingDueDateISO = gradingDueDate ? new Date(gradingDueDate).toISOString() : null;
+
       const res = await fetch("/api/lecturer/assignments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,17 +141,15 @@ export default function LecturerPage() {
           description: assignmentDescription,
           numTeams: numTeams,
           maxMembersPerTeam: maxMembers,
+          assignmentDueDate: assignmentDueDateISO,
+          gradingDueDate: gradingDueDateISO,
         }),
       });
 
       if (res.ok) {
         alert("Assignment created successfully!");
         setShowCreateForm(false);
-        setAssignmentTitle("");
-        setAssignmentDescription("");
-        setSelectedCourse(null);
-        setNumTeams(5);
-        setMaxMembers(5);
+        resetForm();
         fetchAssignments();
       } else {
         const data = await res.json();
@@ -140,6 +162,16 @@ export default function LecturerPage() {
     }
   };
 
+  const resetForm = () => {
+    setAssignmentTitle("");
+    setAssignmentDescription("");
+    setSelectedCourse(null);
+    setNumTeams(5);
+    setMaxMembers(5);
+    setAssignmentDueDate("");
+    setGradingDueDate("");
+  };
+
   const handleViewTeams = (assignmentId: number) => {
     setSelectedAssignment(assignmentId);
   };
@@ -147,6 +179,121 @@ export default function LecturerPage() {
   const handleBackToAssignments = () => {
     setSelectedAssignment(null);
     setTeams([]);
+  };
+
+  const handleEditAssignment = (assignment: Assignment) => {
+    setEditingAssignment(assignment);
+    setAssignmentTitle(assignment.title);
+    setAssignmentDescription(assignment.description || "");
+    setNumTeams(assignment.num_teams);
+    setMaxMembers(assignment.max_members_per_team);
+    
+    // Format dates for datetime-local input
+    if (assignment.assignment_due_date) {
+      const date = new Date(assignment.assignment_due_date);
+      setAssignmentDueDate(date.toISOString().slice(0, 16));
+    } else {
+      setAssignmentDueDate("");
+    }
+    
+    if (assignment.grading_due_date) {
+      const date = new Date(assignment.grading_due_date);
+      setGradingDueDate(date.toISOString().slice(0, 16));
+    } else {
+      setGradingDueDate("");
+    }
+    
+    setShowEditForm(true);
+  };
+
+  const handleUpdateAssignment = async () => {
+    if (!assignmentTitle || numTeams < 1 || maxMembers < 1) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    if (assignmentDueDate && gradingDueDate) {
+      const assignmentDate = new Date(assignmentDueDate);
+      const gradingDate = new Date(gradingDueDate);
+      
+      if (gradingDate < assignmentDate) {
+        alert("Grading due date must be after assignment due date");
+        return;
+      }
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const assignmentDueDateISO = assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null;
+      const gradingDueDateISO = gradingDueDate ? new Date(gradingDueDate).toISOString() : null;
+
+      const res = await fetch(`/api/lecturer/assignments/${editingAssignment?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: assignmentTitle,
+          description: assignmentDescription,
+          numTeams: numTeams,
+          maxMembersPerTeam: maxMembers,
+          assignmentDueDate: assignmentDueDateISO,
+          gradingDueDate: gradingDueDateISO,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Assignment updated successfully!");
+        setShowEditForm(false);
+        setEditingAssignment(null);
+        resetForm();
+        fetchAssignments();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update assignment");
+      }
+    } catch (err) {
+      alert("Network error");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: number) => {
+    if (!confirm("Are you sure you want to delete this assignment? This will also delete all teams and cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/lecturer/assignments/${assignmentId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Assignment deleted successfully!");
+        fetchAssignments();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete assignment");
+      }
+    } catch (err) {
+      alert("Network error");
+    }
+  };
+
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "Not set";
+    return new Date(dateString).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const isOverdue = (dateString: string | null) => {
+    if (!dateString) return false;
+    return new Date(dateString) < new Date();
   };
 
   return (
@@ -286,7 +433,10 @@ export default function LecturerPage() {
                     <div className="flex justify-between items-center mb-4">
                       <h2 className="text-2xl font-bold">Create New Assignment</h2>
                       <button
-                        onClick={() => setShowCreateForm(false)}
+                        onClick={() => {
+                          setShowCreateForm(false);
+                          resetForm();
+                        }}
                         className="text-gray-500 hover:text-gray-700"
                       >
                         ✕
@@ -368,6 +518,34 @@ export default function LecturerPage() {
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assignment Due Date
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={assignmentDueDate}
+                            onChange={(e) => setAssignmentDueDate(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">When students must submit</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Grading Due Date
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={gradingDueDate}
+                            onChange={(e) => setGradingDueDate(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Your deadline to complete grading</p>
+                        </div>
+                      </div>
+
                       <div className="flex gap-3 pt-4">
                         <button
                           onClick={handleCreateAssignment}
@@ -377,8 +555,148 @@ export default function LecturerPage() {
                           {isCreating ? "Creating..." : "Create Assignment"}
                         </button>
                         <button
-                          onClick={() => setShowCreateForm(false)}
+                          onClick={() => {
+                            setShowCreateForm(false);
+                            resetForm();
+                          }}
                           disabled={isCreating}
+                          className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Assignment Form */}
+                {showEditForm && editingAssignment && (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Edit Assignment</h2>
+                      <button
+                        onClick={() => {
+                          setShowEditForm(false);
+                          setEditingAssignment(null);
+                          resetForm();
+                        }}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                        <p className="text-sm text-blue-800">
+                          <strong>Course:</strong> {editingAssignment.course_title}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Assignment Title *
+                        </label>
+                        <input
+                          type="text"
+                          value={assignmentTitle}
+                          onChange={(e) => setAssignmentTitle(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Project 1: Web Development"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          value={assignmentDescription}
+                          onChange={(e) => setAssignmentDescription(e.target.value)}
+                          rows={3}
+                          className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Assignment description..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Number of Teams *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={numTeams}
+                            onChange={(e) => setNumTeams(Number(e.target.value))}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          {numTeams < editingAssignment.num_teams && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              ⚠️ Reducing teams will delete empty teams
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Max Members per Team *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="20"
+                            value={maxMembers}
+                            onChange={(e) => setMaxMembers(Number(e.target.value))}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assignment Due Date
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={assignmentDueDate}
+                            onChange={(e) => setAssignmentDueDate(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">When students must submit</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Grading Due Date
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={gradingDueDate}
+                            onChange={(e) => setGradingDueDate(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Your deadline to complete grading</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <button
+                          onClick={handleUpdateAssignment}
+                          disabled={isUpdating}
+                          className="flex-1 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
+                        >
+                          {isUpdating ? "Updating..." : "Update Assignment"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowEditForm(false);
+                            setEditingAssignment(null);
+                            resetForm();
+                          }}
+                          disabled={isUpdating}
                           className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
                         >
                           Cancel
@@ -404,6 +722,34 @@ export default function LecturerPage() {
                               {assignment.description && (
                                 <p className="text-gray-600 text-sm mb-3">{assignment.description}</p>
                               )}
+                              
+                              {/* Due Dates Display */}
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="bg-blue-50 rounded p-2">
+                                  <p className="text-xs text-gray-600 font-medium">Assignment Due</p>
+                                  <p className={`text-sm font-semibold ${
+                                    isOverdue(assignment.assignment_due_date) ? "text-red-600" : "text-blue-700"
+                                  }`}>
+                                    {formatDateTime(assignment.assignment_due_date)}
+                                    {isOverdue(assignment.assignment_due_date) && assignment.assignment_due_date && (
+                                      <span className="ml-2 text-xs">(Overdue)</span>
+                                    )}
+                                  </p>
+                                </div>
+                                
+                                <div className="bg-purple-50 rounded p-2">
+                                  <p className="text-xs text-gray-600 font-medium">Grading Due</p>
+                                  <p className={`text-sm font-semibold ${
+                                    isOverdue(assignment.grading_due_date) ? "text-red-600" : "text-purple-700"
+                                  }`}>
+                                    {formatDateTime(assignment.grading_due_date)}
+                                    {isOverdue(assignment.grading_due_date) && assignment.grading_due_date && (
+                                      <span className="ml-2 text-xs">(Overdue)</span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+
                               <div className="flex gap-4 text-sm text-gray-600">
                                 <span>Teams: {assignment.teams_created}/{assignment.num_teams}</span>
                                 <span>Max per team: {assignment.max_members_per_team}</span>
@@ -412,12 +758,26 @@ export default function LecturerPage() {
                                 </span>
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleViewTeams(assignment.id)}
-                              className="ml-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm whitespace-nowrap"
-                            >
-                              View Teams
-                            </button>
+                            <div className="ml-4 flex gap-2">
+                              <button
+                                onClick={() => handleEditAssignment(assignment)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleViewTeams(assignment.id)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                              >
+                                View Teams
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAssignment(assignment.id)}
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

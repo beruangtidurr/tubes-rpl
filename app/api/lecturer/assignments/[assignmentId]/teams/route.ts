@@ -1,3 +1,5 @@
+//app/api/lecturer/assignments/[assignmentId]/teams/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { cookies } from "next/headers";
