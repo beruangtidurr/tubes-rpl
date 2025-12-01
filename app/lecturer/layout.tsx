@@ -2,7 +2,6 @@
 import type { ReactNode } from "react";
 import Panel from "@/app/ui/panel";
 import NavbarLecturer from "@/app/ui/navbarLecturer";
-import ChatContainer from "@/app/ui/chatContainer";
 import { ChatProvider } from "@/app/context/ChatContext";
 import { CourseProvider } from "@/app/context/CourseContext";
 
