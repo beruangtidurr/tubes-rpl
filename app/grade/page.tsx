@@ -13,10 +13,15 @@ interface GradeComponent {
   notes: string | null;
 }
 
+interface TeamMember {
+  id: number;
+  name: string;
+}
+
 interface Team {
   id: number;
   name: string;
-  members: string[];
+  members: TeamMember[];
 }
 
 interface Assignment {
@@ -128,10 +133,10 @@ export default function StudentGradeView() {
 
       <div className="space-y-4 overflow-y-auto">
         {gradeData?.courses.map((course) => (
-          <div key={course.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div key={course.id} className="bg-white rounded-lg  overflow-hidden">
             {/* Course Header */}
             <div
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-all"
+              className="bg-grey-300 hover:bg-grey-400 text-black p-4 cursor-pointer transition-all shadow-md"
               onClick={() => toggleCourse(course.id)}
             >
               <div className="flex items-center justify-between">
@@ -141,12 +146,12 @@ export default function StudentGradeView() {
                   </span>
                   <span className="text-xl">📘</span>
 
-                  <div>
+                  <div className='text-black'>
                     <h3 className="text-xl font-semibold">{course.title}</h3>
-                    <p className="text-blue-100 text-sm">{course.description}</p>
+                    <p className=" text-sm">{course.description}</p>
                   </div>
                 </div>
-                <div className="text-sm">{course.assignments.length} assignment(s)</div>
+                <div className="text-sm text-black">{course.assignments.length} assignment(s)</div>
               </div>
             </div>
 
@@ -223,12 +228,12 @@ export default function StudentGradeView() {
                               <span className="mr-2">👥</span> Team Members
                             </h5>
                             <div className="flex flex-wrap gap-2">
-                              {assignment.team.members.map((member, idx) => (
+                              {assignment.team.members.map((member) => (
                                 <span
-                                  key={idx}
+                                  key={member.id}
                                   className="bg-white px-3 py-1 rounded-full text-sm text-gray-700 border border-blue-200"
                                 >
-                                  {member}
+                                  {member.name}
                                 </span>
                               ))}
                             </div>
