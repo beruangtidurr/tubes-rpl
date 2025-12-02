@@ -13,7 +13,7 @@ export default function MyTeamLayout({ children }: { children: ReactNode }) {
         <div className="min-h-screen flex flex-col">
           <Navbar />
 
-          <main className="p-8 bg-[#6ec0ff] grow flex flex-col">
+          <div className="p-8 bg-[#6ec0ff] grow flex flex-col">
             <div className="grid grid-cols-[350px_1fr] gap-6 grow">
               {/* Calendar Column */}
               <div className="flex flex-col">
@@ -44,7 +44,7 @@ export default function MyTeamLayout({ children }: { children: ReactNode }) {
                 </Panel>
               </div>
             </div>
-          </main>
+          </div>
         </div>
       </CourseProvider>
     </ChatProvider>
