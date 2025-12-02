@@ -85,6 +85,9 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   const [individualGrades, setIndividualGrades] = useState<Record<number, { score: number; notes: string }>>({});
   const [overallFeedback, setOverallFeedback] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Store all team grades for calculation - can be either component grades or calculated totals
+  const [allTeamGrades, setAllTeamGrades] = useState<Record<number, any>>({});
 
   useEffect(() => {
     fetchComponents();
@@ -99,10 +102,17 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   const fetchComponents = async () => {
     try {
       const res = await fetch(`/api/lecturer/assignments/${assignmentId}/components`);
-      const data = await res.json();
+      console.log("Components response status:", res.status);
+      console.log("Components response headers:", res.headers.get('content-type'));
+      
+      const text = await res.text();
+      console.log("Components raw response:", text.substring(0, 200));
+      
+      const data = JSON.parse(text);
       setComponents(data.components || []);
     } catch (error) {
       console.error("Error fetching components:", error);
+      alert(`Failed to load components. Check console for details.`);
     }
   };
 
@@ -111,7 +121,13 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
     
     try {
       const res = await fetch(`/api/lecturer/teams/${selectedTeam.id}/grades`);
-      const data = await res.json();
+      console.log("Grades response status:", res.status);
+      console.log("Grades response headers:", res.headers.get('content-type'));
+      
+      const text = await res.text();
+      console.log("Grades raw response:", text.substring(0, 200));
+      
+      const data = JSON.parse(text);
       
       const teamGrade = data.teamGrades?.find((g: any) => g.component_id === selectedComponent?.id);
       if (teamGrade) {
@@ -138,6 +154,7 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
       }
     } catch (error) {
       console.error("Error fetching grades:", error);
+      alert(`Failed to load grades. Check console for details.`);
     }
   };
 
@@ -244,6 +261,42 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   };
 
   const totalWeight = components.reduce((sum, c) => sum + parseFloat(c.weight.toString()), 0);
+
+  // Calculate total grade based on weighted components
+  const calculateTotalGrade = (teamId: number) => {
+    const teamGrades = allTeamGrades[teamId];
+    
+    if (!teamGrades || typeof teamGrades !== 'object') {
+      return null;
+    }
+    
+    // Check if it's the selection view data format
+    if ('totalGrade' in teamGrades) {
+      return teamGrades;
+    }
+    
+    // Otherwise calculate from component grades
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    components.forEach((comp) => {
+      const grade = teamGrades[comp.id];
+      if (grade) {
+        const percentageScore = (grade.score / grade.maxScore) * 100;
+        const weightedScore = (percentageScore * grade.weight) / 100;
+        totalWeightedScore += weightedScore;
+        totalWeight += grade.weight;
+      }
+    });
+
+    if (totalWeight === 0) return null;
+    
+    return {
+      score: totalWeightedScore,
+      isComplete: totalWeight === 100,
+      gradedWeight: totalWeight
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -540,6 +593,7 @@ export default function LecturerPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<number | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "teams" | "grading">("list");
+  const [teamGradesData, setTeamGradesData] = useState<Record<number, any>>({});
 
   // Create assignment form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -598,8 +652,78 @@ export default function LecturerPage() {
       const res = await fetch(`/api/lecturer/assignments/${assignmentId}/teams`);
       const data = await res.json();
       setTeams(data.teams || []);
+      
+      // Fetch grades for all teams
+      if (data.teams && data.teams.length > 0) {
+        await fetchAllTeamGrades(assignmentId, data.teams);
+      }
     } catch (error) {
       console.error("Error fetching teams:", error);
+    }
+  };
+
+  const fetchAllTeamGrades = async (assignmentId: number, teamsList: Team[]) => {
+    try {
+      // Fetch components for this assignment
+      const compRes = await fetch(`/api/lecturer/assignments/${assignmentId}/components`);
+      const compData = await compRes.json();
+      const components = compData.components || [];
+
+      console.log("Components for assignment:", components);
+
+      if (components.length === 0) {
+        console.log("No components found for this assignment");
+        return;
+      }
+
+      // Fetch grades for each team
+      const gradesPromises = teamsList.map(async (team) => {
+        try {
+          const gradeRes = await fetch(`/api/lecturer/teams/${team.id}/grades`);
+          const gradeData = await gradeRes.json();
+          
+          console.log(`Team ${team.name} (ID: ${team.id}) grades:`, gradeData);
+          
+          // Calculate total grade
+          let totalWeightedScore = 0;
+          let totalWeight = 0;
+
+          gradeData.teamGrades?.forEach((grade: any) => {
+            const comp = components.find((c: any) => c.id === grade.component_id);
+            if (comp) {
+              const percentageScore = (grade.score / comp.max_score) * 100;
+              const compWeight = parseFloat(comp.weight.toString());
+              const weightedScore = (percentageScore * compWeight) / 100;
+              totalWeightedScore += weightedScore;
+              totalWeight += compWeight;
+              console.log(`  Component ${comp.name}: ${grade.score}/${comp.max_score} (${percentageScore.toFixed(1)}%) × ${compWeight}% = ${weightedScore.toFixed(2)}`);
+            }
+          });
+
+          console.log(`  Total for ${team.name}: ${totalWeightedScore.toFixed(1)}% (${totalWeight}% of components graded)`);
+
+          return {
+            teamId: team.id,
+            totalGrade: totalWeight > 0 ? totalWeightedScore : null,
+            isComplete: totalWeight === 100,
+            gradedWeight: totalWeight
+          };
+        } catch (err) {
+          console.error(`Error fetching grades for team ${team.id}:`, err);
+          return { teamId: team.id, totalGrade: null, isComplete: false, gradedWeight: 0 };
+        }
+      });
+
+      const gradesResults = await Promise.all(gradesPromises);
+      const gradesMap: Record<number, any> = {};
+      gradesResults.forEach(result => {
+        gradesMap[result.teamId] = result;
+      });
+      
+      console.log("Final calculated grades map:", gradesMap);
+      setTeamGradesData(gradesMap);
+    } catch (error) {
+      console.error("Error fetching team grades:", error);
     }
   };
 
@@ -890,35 +1014,61 @@ export default function LecturerPage() {
                   <p className="text-gray-500">No teams found</p>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {teams.map((team) => (
-                      <div key={team.id} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="font-bold text-lg">{team.name}</h3>
-                          <span className={`text-sm px-2 py-1 rounded ${
-                            team.current_members >= team.max_members
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
-                          }`}>
-                            {team.current_members}/{team.max_members}
-                          </span>
-                        </div>
+                    {teams.map((team) => {
+                      const gradeInfo = teamGradesData[team.id];
+                      
+                      return (
+                        <div key={team.id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <h3 className="font-bold text-lg">{team.name}</h3>
+                            <span className={`text-sm px-2 py-1 rounded ${
+                              team.current_members >= team.max_members
+                                ? "bg-red-100 text-red-700"
+                                : "bg-green-100 text-green-700"
+                            }`}>
+                              {team.current_members}/{team.max_members}
+                            </span>
+                          </div>
 
-                        <div className="space-y-2">
-                          {team.members.length === 0 ? (
-                            <p className="text-sm text-gray-500 italic">No members yet</p>
-                          ) : (
-                            team.members.map((member) => (
-                              <div key={member.id} className="bg-white rounded p-2 text-sm border">
-                                <p className="font-medium">{member.user_name}</p>
-                                <p className="text-xs text-gray-500">
-                                  Joined: {new Date(member.joined_at).toLocaleDateString()}
+                          {gradeInfo && gradeInfo.totalGrade !== null ? (
+                            <div className={`mb-3 p-3 rounded ${
+                              gradeInfo.isComplete ? "bg-green-50 border border-green-200" : "bg-orange-50 border border-orange-200"
+                            }`}>
+                              <p className="text-xs text-gray-600 font-medium">Total Grade:</p>
+                              <p className={`text-2xl font-bold ${
+                                gradeInfo.isComplete ? "text-green-700" : "text-orange-600"
+                              }`}>
+                                {gradeInfo.totalGrade.toFixed(1)}%
+                              </p>
+                              {!gradeInfo.isComplete && (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  {gradeInfo.gradedWeight}% of components graded
                                 </p>
-                              </div>
-                            ))
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mb-3 p-3 bg-gray-100 rounded border border-gray-300">
+                              <p className="text-xs text-gray-500 text-center">Not graded yet</p>
+                            </div>
                           )}
+
+                          <div className="space-y-2">
+                            {team.members.length === 0 ? (
+                              <p className="text-sm text-gray-500 italic">No members yet</p>
+                            ) : (
+                              team.members.map((member) => (
+                                <div key={member.id} className="bg-white rounded p-2 text-sm border">
+                                  <p className="font-medium">{member.user_name}</p>
+                                  <p className="text-xs text-gray-500">
+                                    Joined: {new Date(member.joined_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
