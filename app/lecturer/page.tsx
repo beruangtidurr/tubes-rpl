@@ -39,12 +39,34 @@ type Team = {
   members: TeamMember[];
 };
 
+// Import GradingInterface component
+type GradingInterfaceProps = {
+  assignmentId: number;
+  assignmentTitle: string;
+  teams: Team[];
+  onBack: () => void;
+};
+
+// Placeholder - you'll need to create this as a separate component file
+function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: GradingInterfaceProps) {
+  return (
+    <div className="text-center py-8">
+      <p className="text-gray-600">Grading interface will be loaded here</p>
+      <p className="text-sm text-gray-500 mt-2">Assignment ID: {assignmentId}</p>
+      <button onClick={onBack} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded">
+        Back
+      </button>
+    </div>
+  );
+}
+
 export default function LecturerPage() {
   const [activeTab, setActiveTab] = useState<"courses" | "assignments">("courses");
   const [courses, setCourses] = useState<Course[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<number | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [viewMode, setViewMode] = useState<"list" | "teams" | "grading">("list");
 
   // Create assignment form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -174,11 +196,18 @@ export default function LecturerPage() {
 
   const handleViewTeams = (assignmentId: number) => {
     setSelectedAssignment(assignmentId);
+    setViewMode("teams");
+  };
+
+  const handleStartGrading = (assignmentId: number) => {
+    setSelectedAssignment(assignmentId);
+    setViewMode("grading");
   };
 
   const handleBackToAssignments = () => {
     setSelectedAssignment(null);
     setTeams([]);
+    setViewMode("list");
   };
 
   const handleEditAssignment = (assignment: Assignment) => {
@@ -364,8 +393,15 @@ export default function LecturerPage() {
         {/* Assignments Tab */}
         {activeTab === "assignments" && (
           <div className="space-y-6">
-            {/* View Teams for Selected Assignment */}
-            {selectedAssignment ? (
+            {/* Grading Interface */}
+            {selectedAssignment && viewMode === "grading" ? (
+              <GradingInterface
+                assignmentId={selectedAssignment}
+                assignmentTitle={assignments.find(a => a.id === selectedAssignment)?.title || ""}
+                teams={teams}
+                onBack={handleBackToAssignments}
+              />
+            ) : selectedAssignment && viewMode === "teams" ? (
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold">Teams Overview</h2>
@@ -761,19 +797,25 @@ export default function LecturerPage() {
                             <div className="ml-4 flex gap-2">
                               <button
                                 onClick={() => handleEditAssignment(assignment)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm whitespace-nowrap"
                               >
                                 Edit
                               </button>
                               <button
+                                onClick={() => handleStartGrading(assignment.id)}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm whitespace-nowrap"
+                              >
+                                Grade
+                              </button>
+                              <button
                                 onClick={() => handleViewTeams(assignment.id)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm whitespace-nowrap"
                               >
                                 View Teams
                               </button>
                               <button
                                 onClick={() => handleDeleteAssignment(assignment.id)}
-                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-blue-700 text-sm whitespace-nowrap"
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm whitespace-nowrap"
                               >
                                 Delete
                               </button>

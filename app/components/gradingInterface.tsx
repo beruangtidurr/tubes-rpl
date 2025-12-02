@@ -196,11 +196,18 @@ export default function LecturerPage() {
 
   const handleViewTeams = (assignmentId: number) => {
     setSelectedAssignment(assignmentId);
+    setViewMode("teams");
+  };
+
+  const handleStartGrading = (assignmentId: number) => {
+    setSelectedAssignment(assignmentId);
+    setViewMode("grading");
   };
 
   const handleBackToAssignments = () => {
     setSelectedAssignment(null);
     setTeams([]);
+    setViewMode("list");
   };
 
   const handleEditAssignment = (assignment: Assignment) => {
@@ -386,8 +393,15 @@ export default function LecturerPage() {
         {/* Assignments Tab */}
         {activeTab === "assignments" && (
           <div className="space-y-6">
-            {/* View Teams for Selected Assignment */}
-            {selectedAssignment ? (
+            {/* Grading Interface */}
+            {selectedAssignment && viewMode === "grading" ? (
+              <GradingInterface
+                assignmentId={selectedAssignment}
+                assignmentTitle={assignments.find(a => a.id === selectedAssignment)?.title || ""}
+                teams={teams}
+                onBack={handleBackToAssignments}
+              />
+            ) : selectedAssignment && viewMode === "teams" ? (
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold">Teams Overview</h2>
@@ -786,6 +800,12 @@ export default function LecturerPage() {
                                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm whitespace-nowrap"
                               >
                                 Edit
+                              </button>
+                              <button
+                                onClick={() => handleStartGrading(assignment.id)}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm whitespace-nowrap"
+                              >
+                                Grade
                               </button>
                               <button
                                 onClick={() => handleViewTeams(assignment.id)}
