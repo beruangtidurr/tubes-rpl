@@ -23,11 +23,6 @@ export default function Home() {
       .catch(() => setUser(null));
   }, []);
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
-  }
-
   // If chat selected → show chat view
   if (selectedChat) {
     return (
@@ -84,12 +79,6 @@ export default function Home() {
             </p>
           )}
         </div>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Logout
-        </button>
       </div>
 
       <CardContainer />

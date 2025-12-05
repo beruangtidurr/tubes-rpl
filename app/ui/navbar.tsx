@@ -15,10 +15,10 @@ export default function Navbar() {
           Grade
         </Link>
       </nav>
-      <div className="flex items-center space-x-2">
-        <span className="text-gray-600">6182301001</span>
+      <Link href="/profile" className="flex items-center space-x-2 hover:opacity-80 cursor-pointer">
+        <span className="text-gray-600">My Profile</span>
         <div className="h-6 w-6 rounded-full bg-gray-400"></div>
-      </div>
+      </Link>
     </header>
   )
 }

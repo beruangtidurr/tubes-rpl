@@ -148,6 +148,7 @@ export default async function CourseDetailPage({ params }: Props) {
                         memberCount: parseInt(team.member_count),
                         members: team.members || [],
                       }}
+                      assignmentId={currentAssignment.id}
                     />
                   ))}
                 </div>
