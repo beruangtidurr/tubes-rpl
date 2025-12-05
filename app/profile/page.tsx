@@ -12,7 +12,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [name, setName] = useState("")
   const [tempName, setTempName] = useState("")
-  const [userId, setUserId] = useState("")
+  const [useremail, setEmail] = useState("")
   const [role, setRole] = useState("")
   const [error, setError] = useState("")
 
@@ -36,7 +36,7 @@ export default function ProfilePage() {
       if (response.ok && data.success) {
         setName(data.data.name)
         setTempName(data.data.name)
-        setUserId(data.data.userId)
+        setEmail(data.data.email)
         setRole(data.data.role)
       } else {
         setError(data.error || "Failed to load profile")
@@ -179,11 +179,11 @@ export default function ProfilePage() {
             {/* User ID */}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                User ID
+                User Email
               </label>
               <input
                 type="text"
-                value={userId}
+                value={useremail}
                 disabled
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
               />
