@@ -111,7 +111,7 @@ export default function Reminder() {
 
   return (
     <div className="text-gray-900">
-      <h2 className="text-2xl font-bold mb-4">Calendar</h2>
+      <h2 className="text-2xl font-bold mb-4">Reminder</h2>
       
       {assignments.length === 0 ? (
         <div className="bg-white p-4 rounded-lg shadow text-center">
