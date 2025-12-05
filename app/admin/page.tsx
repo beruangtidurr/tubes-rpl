@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { BookOpen, Users, Upload, Plus, X, UserPlus, Download } from 'lucide-react';
 
 type Course = {
   id: number;
@@ -240,6 +241,23 @@ export default function AdminPage() {
     } catch (err) {
       alert("Network error");
     }
+  };
+
+  const downloadTemplate = () => {
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+      ['6182301001@student.com'],
+      ['6182301002@student.com'],
+      ['6182301003@student.com']
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Students');
+    
+    // Generate and download file
+    XLSX.writeFile(wb, 'enroll_students_template.xlsx');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -567,6 +585,13 @@ export default function AdminPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     File should contain student emails in the first column
                   </p>
+                  <button
+                    onClick={downloadTemplate}
+                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                  >
+                    <Download size={16} />
+                    Download Template (XLSX)
+                  </button>
                 </div>
 
                 {uploadedEmails.length > 0 && (
