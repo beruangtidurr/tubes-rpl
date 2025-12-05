@@ -17,11 +17,13 @@ interface TeamSectionProps {
     memberCount: number;
     members: Member[];
   };
+  assignmentId: number;
 }
 
-export default function TeamSection({ team }: TeamSectionProps) {
+export default function TeamSection({ team, assignmentId }: TeamSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
 
@@ -50,7 +52,8 @@ export default function TeamSection({ team }: TeamSectionProps) {
     fetchCurrentUser();
   }, []);
 
-  const isMember = currentUser ? team.members.some((m) => m.user_id === currentUser.id) : false;
+  // Convert both to strings for comparison to handle type mismatches
+  const isMember = currentUser ? team.members.some((m) => m.user_id.toString() === currentUser.id.toString()) : false;
   const isFull = team.memberCount >= team.maxMembers;
 
   const handleJoin = async () => {
@@ -66,6 +69,7 @@ export default function TeamSection({ team }: TeamSectionProps) {
         body: JSON.stringify({
           userId: currentUser.id,
           userName: currentUser.name,
+          assignmentId: assignmentId,
         }),
       });
 
@@ -82,6 +86,41 @@ export default function TeamSection({ team }: TeamSectionProps) {
       setError("Network error. Please try again.");
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!currentUser || !isMember) return;
+
+    if (!confirm("Are you sure you want to leave this team?")) {
+      return;
+    }
+
+    setIsLeaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/teams/${team.id}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to leave team");
+        return;
+      }
+
+      // Refresh the page to show updated team
+      window.location.reload();
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setIsLeaving(false);
     }
   };
 
@@ -126,7 +165,7 @@ export default function TeamSection({ team }: TeamSectionProps) {
                   👤
                 </div>
                 <span>{member.user_name}</span>
-                {currentUser && member.user_id === currentUser.id && (
+                {currentUser && member.user_id.toString() === currentUser.id.toString() && (
                   <span className="text-xs text-blue-500">(You)</span>
                 )}
               </div>
@@ -156,8 +195,19 @@ export default function TeamSection({ team }: TeamSectionProps) {
           )}
 
           {currentUser && isMember && (
-            <div className="mt-3 text-sm text-green-600 font-medium">
-              ✓ You are in this team
+            <div className="mt-3">
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="text-sm text-green-700 font-medium flex-1">
+                  ✓ You are a member of this team
+                </div>
+                <button
+                  onClick={handleLeave}
+                  disabled={isLeaving}
+                  className="px-5 py-2 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 active:bg-red-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {isLeaving ? "Leaving..." : "Leave Team"}
+                </button>
+              </div>
             </div>
           )}
         </div>
