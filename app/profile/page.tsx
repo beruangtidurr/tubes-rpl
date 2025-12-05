@@ -86,6 +86,18 @@ export default function ProfilePage() {
     }
   }
 
+  const getHomeRoute = () => {
+    switch (role) {
+      case 'ADMIN':
+        return '/admin'
+      case 'LECTURER':
+        return '/lecturer'
+      case 'STUDENT':
+      default:
+        return '/'
+    }
+  }
+
   const handleLogout = async () => {
     try {
       // Call logout API endpoint
@@ -150,7 +162,7 @@ export default function ProfilePage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Profile</h1>
-            <Link href="/" className="text-blue-600 hover:text-blue-700 text-sm">
+            <Link href={getHomeRoute()} className="text-blue-600 hover:text-blue-700 text-sm">
               ← Back to Home
             </Link>
           </div>

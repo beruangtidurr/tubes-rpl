@@ -16,7 +16,7 @@ export default function Navbar() {
         </Link>
       </nav>
       <Link href="/profile" className="flex items-center space-x-2 hover:opacity-80 cursor-pointer">
-        <span className="text-gray-600">6182301001</span>
+        <span className="text-gray-600">My Profile</span>
         <div className="h-6 w-6 rounded-full bg-gray-400"></div>
       </Link>
     </header>
