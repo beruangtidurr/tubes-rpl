@@ -32,10 +32,8 @@ export default function Reminder() {
       
       const data = await response.json();
       
-      // Add logging to see what we're getting
       console.log('API Response:', data);
       
-      // Ensure data is an array
       if (Array.isArray(data)) {
         setAssignments(data);
         setError(null);
@@ -70,15 +68,15 @@ export default function Reminder() {
     if (isTomorrow(date)) return 'Tomorrow';
     
     const daysUntil = differenceInDays(date, new Date());
-    if (daysUntil <= 7) return format(date, 'EEEE'); // Day name
+    if (daysUntil <= 7) return format(date, 'EEEE');
     
-    return format(date, 'MMM dd'); // Month and day
+    return format(date, 'MMM dd');
   };
 
   if (loading) {
     return (
       <div className="text-gray-900">
-        <h2 className="text-2xl font-bold mb-4">Calendar</h2>
+        <h2 className="text-2xl font-bold mb-4">Reminder</h2>
         <div className="space-y-3">
           {[1, 2].map((i) => (
             <div key={i} className="bg-white p-3 rounded-lg shadow animate-pulse">
@@ -94,7 +92,7 @@ export default function Reminder() {
   if (error) {
     return (
       <div className="text-gray-900">
-        <h2 className="text-2xl font-bold mb-4">Calendar</h2>
+        <h2 className="text-2xl font-bold mb-4">Reminder</h2>
         <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
           <p className="text-red-600 text-sm font-semibold">Error loading assignments</p>
           <p className="text-red-500 text-xs mt-1">{error}</p>
@@ -114,8 +112,16 @@ export default function Reminder() {
       <h2 className="text-2xl font-bold mb-4">Reminder</h2>
       
       {assignments.length === 0 ? (
-        <div className="bg-white p-4 rounded-lg shadow text-center">
-          <p className="text-gray-500">No upcoming assignments</p>
+        <div className="bg-white p-6 rounded-lg shadow text-center">
+          <div className="text-gray-400 mb-3">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <p className="text-gray-600 font-medium mb-1">No assignments yet</p>
+          <p className="text-gray-400 text-sm">
+            You'll see upcoming assignments here once you're enrolled in courses
+          </p>
         </div>
       ) : (
         <>
