@@ -1,3 +1,5 @@
+// app/courses/[slug]/page.tsx
+
 import sql from "@/lib/db";
 import TeamSection from "@/app/courses/[slug]/TeamSection";
 import ExpandableAssignmentCard from "@/app/courses/[slug]/ExpandableAssignmentCard";
