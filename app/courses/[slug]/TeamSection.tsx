@@ -1,3 +1,5 @@
+// app/courses/[slug]/TeamSection.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";

@@ -1,3 +1,5 @@
+// app/courses/[slug]/ExpandableAssignmentCard.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -70,6 +72,7 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Fetch teams when card is opened
   useEffect(() => {
@@ -107,6 +110,7 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         body: JSON.stringify({
           userId: user.id,
           userName: user.fullName || "Unknown User",
+          assignmentId: assignment.id, // FIXED: Added assignmentId
         }),
       });
 
@@ -114,6 +118,10 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         const data = await response.json();
         throw new Error(data.error || "Failed to join team");
       }
+
+      // Show success notification
+      setShowSuccessNotification(true);
+      setTimeout(() => setShowSuccessNotification(false), 3000);
 
       await fetchTeams();
     } catch (err) {
@@ -124,6 +132,10 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
   const handleLeaveTeam = async (teamId: number) => {
     if (!user) {
       alert("Please log in to leave a team");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to leave this team?")) {
       return;
     }
 
@@ -147,6 +159,16 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
 
   return (
     <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+      {/* Success Notification */}
+      {showSuccessNotification && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">✓</span>
+            <span className="font-medium">Successfully joined the team!</span>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex justify-between items-center p-4 bg-gray-100 hover:bg-gray-200 transition"
@@ -235,71 +257,93 @@ function TeamCard({
 
   const isFull = team.memberCount >= team.maxMembers;
   const isUserInTeam = team.members?.some(
-    (m) => Number(m.user_id) === currentUserId // FIXED
+    (m) => Number(m.user_id) === currentUserId
   );
 
   return (
     <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between p-4 bg-gray-50">
+      <div className="flex items-center justify-between p-4 bg-white">
         <div className="flex items-center gap-3 flex-1">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-gray-600 hover:text-gray-800 transition font-bold text-sm"
+            className="text-gray-600 hover:text-gray-800 transition"
           >
-            {expanded ? "▼" : "▶"}
+            <svg
+              className={`w-5 h-5 transition-transform ${
+                expanded ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </button>
 
           <div className="flex-1">
-            <h5 className="font-semibold text-base text-gray-800">
+            <h5 className="font-medium text-base text-gray-800">
               {team.name}
             </h5>
-            <p className="text-xs text-gray-600 mt-1">
-              {team.memberCount} / {team.maxMembers} members
+            <p className="text-sm text-gray-500 mt-0.5">
+              {team.memberCount}/{team.maxMembers}
             </p>
           </div>
         </div>
 
         {isUserInTeam ? (
-          <button
-            onClick={() => onLeave(team.id)}
-            className="px-4 py-2 text-sm font-medium text-red-600 border-2 border-red-300 rounded-lg hover:bg-red-50 transition"
-          >
-            Leave Team
-          </button>
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+            <div className="text-sm text-green-700 font-medium">
+              ✓ You are a member
+            </div>
+            <button
+              onClick={() => onLeave(team.id)}
+              className="px-4 py-1.5 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition shadow-sm"
+            >
+              Leave Team
+            </button>
+          </div>
         ) : (
           <button
             onClick={() => onJoin(team.id)}
             disabled={isFull}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+            className={`px-6 py-1.5 text-sm rounded-full transition ${
               isFull
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
+                : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {isFull ? "Team Full" : "Join Team"}
+            {isFull ? "Team Full" : "Join"}
           </button>
         )}
       </div>
 
-      {expanded && team.members && team.members.length > 0 && (
-        <div className="border-t-2 border-gray-200 bg-white p-4">
-          <p className="text-sm font-semibold text-gray-700 mb-3">
-            Team Members:
-          </p>
-          <ul className="space-y-2">
-            {team.members.map((member) => (
-              <li
-                key={member.id}
-                className="text-sm text-gray-700 flex items-center gap-2 bg-gray-50 p-2 rounded"
-              >
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                <span className="font-medium">{member.user_name}</span>
-                <span className="text-gray-500 text-xs ml-auto">
-                  joined {new Date(member.joined_at).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
-          </ul>
+      {expanded && (
+        <div className="border-t border-gray-200 bg-white p-4">
+          <div className="ml-4 space-y-3">
+            {team.members && team.members.length > 0 ? (
+              team.members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center gap-2 text-sm text-gray-700"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+                    👤
+                  </div>
+                  <span>{member.user_name}</span>
+                  {Number(member.user_id) === currentUserId && (
+                    <span className="text-xs text-blue-500">(You)</span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No members yet</p>
+            )}
+          </div>
         </div>
       )}
     </div>
