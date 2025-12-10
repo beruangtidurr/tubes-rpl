@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import CardContainer from "@/app/ui/cardContainer";
 import { useChat } from "@/app/context/ChatContext";
 
@@ -14,14 +15,49 @@ type CurrentUser = {
 
 export default function Home() {
   const [user, setUser] = useState<CurrentUser>(null);
+  const [loading, setLoading] = useState(true);
   const { selectedChat, setSelectedChat } = useChat();
+  const router = useRouter();
 
   useEffect(() => {
+    // Check authentication status
     fetch("/api/auth/me")
       .then((res) => res.json())
-      .then((data) => setUser(data.user))
-      .catch(() => setUser(null));
-  }, []);
+      .then((data) => {
+        if (data.user) {
+          // User is authenticated
+          setUser(data.user);
+          setLoading(false);
+        } else {
+          // Not authenticated - redirect to login
+          console.log("User not authenticated, redirecting to login...");
+          router.push("/login");
+        }
+      })
+      .catch((error) => {
+        // Error fetching user - redirect to login
+        console.error("Authentication check failed:", error);
+        router.push("/login");
+      });
+  }, [router]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is null and loading is false, we're redirecting
+  // This prevents flash of content before redirect
+  if (!user) {
+    return null;
+  }
 
   // If chat selected → show chat view
   if (selectedChat) {
@@ -36,7 +72,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => setSelectedChat(null)}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
           >
             ← Kembali ke My Course
           </button>
@@ -56,9 +92,9 @@ export default function Home() {
             <input
               type="text"
               placeholder="Ketik pesan..."
-              className="flex-1 border px-3 py-2 rounded"
+              className="flex-1 border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
               Kirim
             </button>
           </div>
@@ -73,11 +109,9 @@ export default function Home() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">My Course</h2>
-          {user && (
-            <p className="text-sm text-gray-600">
-              Selamat datang, {user.name} ({user.email})
-            </p>
-          )}
+          <p className="text-sm text-gray-600">
+            Selamat datang, {user.name} ({user.email})
+          </p>
         </div>
       </div>
 
