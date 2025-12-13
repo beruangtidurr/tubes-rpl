@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import sql from '@/lib/db';
+import { getCurrentAcademicYearSemester, getAcademicYearsList } from '@/lib/academicYear';
 
 interface GradeComponent {
   id: number;
@@ -58,15 +59,21 @@ export async function GET(request: NextRequest) {
 
     const userId = payload.id;
 
+    // Query parameters for filtering academic year and semester
+    const { searchParams } = new URL(request.url);
+    const academicYear = searchParams.get('academicYear');
+    const semester = searchParams.get('semester');
+
+    // If no filter provided, default to current semester
+    const current = getCurrentAcademicYearSemester();
+    const filterAcademicYear = academicYear || current.academicYear;
+    const filterSemester = semester || current.semester;
+
     // Query to get all grades for the student
+    // Only show courses that have assignments in the selected semester
     const result = await sql`
-      WITH student_courses AS (
-        SELECT DISTINCT c.id, c.title, c.description
-        FROM courses c
-        INNER JOIN course_enrollments ce ON c.id = ce.course_id
-        WHERE ce.user_id = ${userId}
-      ),
-      student_assignments AS (
+      WITH course_assignments AS (
+        -- Get all assignments for enrolled courses in the selected semester
         SELECT 
           a.id,
           a.course_id,
@@ -74,26 +81,65 @@ export async function GET(request: NextRequest) {
           a.description,
           a.assignment_due_date,
           a.grading_due_date,
-          t.id as team_id,
-          t.name as team_name,
-          tm.id as team_member_id
+          a.academic_year,
+          a.semester
         FROM assignments a
-        INNER JOIN teams t ON t.assignment_id = a.id
-        INNER JOIN team_members tm ON tm.team_id = t.id
-        WHERE tm.user_id = ${userId}
+        INNER JOIN course_enrollments ce ON ce.course_id = a.course_id
+        WHERE ce.user_id = ${userId}
+          AND a.academic_year = ${filterAcademicYear}
+          AND a.semester = ${filterSemester}
+      ),
+      student_courses AS (
+        -- Get only courses that have assignments in the selected semester
+        SELECT DISTINCT c.id, c.title, c.description
+        FROM courses c
+        INNER JOIN course_assignments ca ON ca.course_id = c.id
+      ),
+      student_team_info AS (
+        -- Get team information ONLY for teams where student is a member
+        SELECT 
+          ca.id as assignment_id,
+          ca.course_id,
+          ca.title,
+          ca.description,
+          ca.assignment_due_date,
+          ca.grading_due_date,
+          ca.academic_year,
+          ca.semester,
+          COALESCE(
+            (SELECT t.id FROM teams t 
+             INNER JOIN team_members tm ON tm.team_id = t.id 
+             WHERE t.assignment_id = ca.id AND tm.user_id = ${userId} 
+             LIMIT 1),
+            NULL
+          ) as team_id,
+          COALESCE(
+            (SELECT t.name FROM teams t 
+             INNER JOIN team_members tm ON tm.team_id = t.id 
+             WHERE t.assignment_id = ca.id AND tm.user_id = ${userId} 
+             LIMIT 1),
+            NULL
+          ) as team_name,
+          (SELECT tm.id FROM teams t 
+           INNER JOIN team_members tm ON tm.team_id = t.id 
+           WHERE t.assignment_id = ca.id AND tm.user_id = ${userId} 
+           LIMIT 1) as team_member_id
+        FROM course_assignments ca
       )
       SELECT 
         sc.id as course_id,
         sc.title as course_title,
         sc.description as course_description,
-        sa.id as assignment_id,
-        sa.title as assignment_title,
-        sa.description as assignment_description,
-        sa.assignment_due_date,
-        sa.grading_due_date,
-        sa.team_id,
-        sa.team_name,
-        sa.team_member_id,
+        sti.assignment_id,
+        sti.title as assignment_title,
+        sti.description as assignment_description,
+        sti.assignment_due_date,
+        sti.grading_due_date,
+        sti.academic_year,
+        sti.semester,
+        sti.team_id,
+        sti.team_name,
+        sti.team_member_id,
         
         gc.id as component_id,
         gc.name as component_name,
@@ -115,19 +161,18 @@ export async function GET(request: NextRequest) {
         (
           SELECT json_agg(json_build_object('id', tm2.user_id, 'name', tm2.user_name))
           FROM team_members tm2
-          WHERE tm2.team_id = sa.team_id
+          WHERE tm2.team_id = sti.team_id
         ) as team_members
         
       FROM student_courses sc
-      LEFT JOIN student_assignments sa ON sa.course_id = sc.id
-      LEFT JOIN grade_components gc ON gc.assignment_id = sa.id
-      LEFT JOIN team_grades tg ON tg.component_id = gc.id AND tg.team_id = sa.team_id
-      LEFT JOIN student_grades sg ON sg.component_id = gc.id AND sg.team_member_id = sa.team_member_id
-      LEFT JOIN team_feedback tf ON tf.assignment_id = sa.id AND tf.team_id = sa.team_id
-      ORDER BY sc.id, sa.id, gc.component_order
+      LEFT JOIN student_team_info sti ON sti.course_id = sc.id
+      LEFT JOIN grade_components gc ON gc.assignment_id = sti.assignment_id
+      LEFT JOIN team_grades tg ON tg.component_id = gc.id AND tg.team_id = sti.team_id
+      LEFT JOIN student_grades sg ON sg.component_id = gc.id AND sg.team_member_id = sti.team_member_id
+      LEFT JOIN team_feedback tf ON tf.assignment_id = sti.assignment_id AND tf.team_id = sti.team_id
+      ORDER BY sc.id, sti.assignment_id, gc.component_order
     `;
 
-    // Transform flat query results into nested structure
     const coursesMap = new Map<number, Course>();
 
     result.forEach((row: any) => {
@@ -143,8 +188,11 @@ export async function GET(request: NextRequest) {
 
       const course = coursesMap.get(row.course_id);
       
-      // Skip if no course or no assignment
-      if (!course || !row.assignment_id) return;
+      // Safety check
+      if (!course) return;
+
+      // Skip if no assignment (course will still be shown with empty assignments array)
+      if (!row.assignment_id) return;
 
       // Find or create assignment
       let assignment = course.assignments.find((a: Assignment) => a.id === row.assignment_id);
@@ -156,25 +204,27 @@ export async function GET(request: NextRequest) {
           assignmentDueDate: row.assignment_due_date,
           gradingDueDate: row.grading_due_date,
           team: {
-            id: row.team_id,
-            name: row.team_name,
+            id: row.team_id || 0,
+            name: row.team_name || 'Not Assigned',
             members: row.team_members || []
           },
           gradeComponents: [],
           overallFeedback: row.overall_feedback,
           finalGrade: null
         };
-        course.assignments.push(assignment);
+        if (assignment) {
+          course.assignments.push(assignment);
+        }
       }
 
-      // Add grade component if exists
+      // Add grade component
       if (row.component_id) {
-        const existingComponent = assignment.gradeComponents.find(
+        const existingComponent = assignment?.gradeComponents?.find(
           gc => gc.id === row.component_id
         );
 
         if (!existingComponent) {
-          assignment.gradeComponents.push({
+          assignment?.gradeComponents?.push({
             id: row.component_id,
             name: row.component_name,
             description: row.component_description,
@@ -218,7 +268,17 @@ export async function GET(request: NextRequest) {
     // Convert map to array
     const courses = Array.from(coursesMap.values());
 
-    return NextResponse.json({ courses }, { status: 200 });
+    // Get available academic years for filter
+    const availableAcademicYears = getAcademicYearsList(2);
+
+    return NextResponse.json({ 
+      courses,
+      currentAcademicYear: current.academicYear,
+      currentSemester: current.semester,
+      filterAcademicYear: filterAcademicYear,
+      filterSemester: filterSemester,
+      availableAcademicYears
+    }, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching grades:', error);
