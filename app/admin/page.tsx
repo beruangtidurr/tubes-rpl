@@ -458,7 +458,35 @@ export default function AdminPage() {
                         {course.description || "No description"}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
-                        Created: {new Date(course.created_at).toLocaleDateString()}
+                        Created: {(() => {
+                          const now = new Date();
+                          if (!course.created_at) {
+                            return now.toLocaleString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                          }
+                          const createdDate = new Date(course.created_at);
+                          if (isNaN(createdDate.getTime())) {
+                            return now.toLocaleString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                          }
+                          return createdDate.toLocaleString('id-ID', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          });
+                        })()}
                       </p>
                     </div>
                   ))}
