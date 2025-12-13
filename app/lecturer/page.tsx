@@ -86,7 +86,7 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   const [overallFeedback, setOverallFeedback] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   
-  // Store all team grades for calculation - can be either component grades or calculated totals
+  // Store all team grades for calculation
   const [allTeamGrades, setAllTeamGrades] = useState<Record<number, any>>({});
 
   useEffect(() => {

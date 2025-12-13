@@ -105,10 +105,6 @@ export default function ProfilePage() {
         method: 'POST'
       })
       
-      // Clear any client-side storage if you're using it
-      // localStorage.removeItem('token')
-      // sessionStorage.clear()
-      
       // Redirect to login page
       router.push('/login')
     } catch (error) {
