@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import sql from "@/lib/db";
 import { cookies } from "next/headers";
+import { getCurrentAcademicYearSemester } from "@/lib/academicYear";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,11 +18,18 @@ export async function GET(req: NextRequest) {
 
     const studentId = payload.id;
 
+    // Get current academic year and semester
+    const { academicYear: currentAcademicYear, semester: currentSemester } = getCurrentAcademicYearSemester();
+
+    // Only show courses that have assignments in the current semester
     const courses = await sql`
-      SELECT c.id, c.title, c.description
+      SELECT DISTINCT c.id, c.title, c.description
       FROM courses c
-      JOIN course_enrollments ce ON ce.course_id = c.id
+      INNER JOIN course_enrollments ce ON ce.course_id = c.id
+      INNER JOIN assignments a ON a.course_id = c.id
       WHERE ce.user_id = ${studentId}
+        AND a.academic_year = ${currentAcademicYear}
+        AND a.semester = ${currentSemester}
       ORDER BY c.id
     `;
 
