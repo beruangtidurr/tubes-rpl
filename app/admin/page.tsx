@@ -786,9 +786,9 @@ export default function AdminPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold mb-4">Current Assignments</h2>
+              <h2 className="text-2xl font-bold mb-4">Current Courses</h2>
               {courseAssignments.length === 0 ? (
-                <p className="text-gray-500">No assignments yet</p>
+                <p className="text-gray-500">No Course yet</p>
               ) : (
                 <div className="space-y-2">
                   {courseAssignments.map((assignment) => (
