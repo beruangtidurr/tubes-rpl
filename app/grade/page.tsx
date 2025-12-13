@@ -30,6 +30,8 @@ interface Assignment {
   description: string;
   assignmentDueDate: string;
   gradingDueDate: string;
+  academicYear?: string;
+  semester?: string;
   team: Team;
   gradeComponents: GradeComponent[];
   overallFeedback: string | null;
@@ -45,6 +47,11 @@ interface Course {
 
 interface GradeData {
   courses: Course[];
+  currentAcademicYear?: string;
+  currentSemester?: string;
+  filterAcademicYear?: string;
+  filterSemester?: string;
+  availableAcademicYears?: string[];
 }
 
 export default function StudentGradeView() {
@@ -52,16 +59,36 @@ export default function StudentGradeView() {
   const [expandedAssignments, setExpandedAssignments] = useState<Set<number>>(new Set());
   const [gradeData, setGradeData] = useState<GradeData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('');
+  const [selectedSemester, setSelectedSemester] = useState<'GANJIL' | 'GENAP' | ''>('');
 
   useEffect(() => {
     const fetchGrades = async () => {
       try {
-        const response = await fetch('/api/student/grades');
+        // Build query string with filters
+        const params = new URLSearchParams();
+        if (selectedAcademicYear) {
+          params.append('academicYear', selectedAcademicYear);
+        }
+        if (selectedSemester) {
+          params.append('semester', selectedSemester);
+        }
+
+        const url = `/api/student/grades${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to fetch grades');
         }
         const data = await response.json();
         setGradeData(data);
+        
+        // Set initial values if not set
+        if (!selectedAcademicYear && data.currentAcademicYear) {
+          setSelectedAcademicYear(data.currentAcademicYear);
+        }
+        if (!selectedSemester && data.currentSemester) {
+          setSelectedSemester(data.currentSemester);
+        }
       } catch (error) {
         console.error('Error fetching grades:', error);
       } finally {
@@ -70,7 +97,7 @@ export default function StudentGradeView() {
     };
 
     fetchGrades();
-  }, []);
+  }, [selectedAcademicYear, selectedSemester]);
 
   const toggleCourse = (courseId: number) => {
     const newExpanded = new Set(expandedCourses);
@@ -128,7 +155,62 @@ export default function StudentGradeView() {
     <div className="flex flex-col grow font-sans p-4">
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">My Grades</h2>
-        <p className="text-gray-600">View your grades across all courses and assignments</p>
+        <p className="text-gray-600 mb-4">View your grades across all courses and assignments</p>
+        
+        {/* Filter Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+          <div className="flex items-end space-x-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tahun Akademik
+              </label>
+              <select
+                value={selectedAcademicYear}
+                onChange={(e) => setSelectedAcademicYear(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Pilih Tahun Akademik</option>
+                {gradeData?.availableAcademicYears?.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Semester
+              </label>
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value as 'GANJIL' | 'GENAP' | '')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Pilih Semester</option>
+                <option value="GANJIL">Ganjil</option>
+                <option value="GENAP">Genap</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <button
+                onClick={() => {
+                  if (gradeData?.currentAcademicYear && gradeData?.currentSemester) {
+                    setSelectedAcademicYear(gradeData.currentAcademicYear);
+                    setSelectedSemester(gradeData.currentSemester as 'GANJIL' | 'GENAP');
+                  }
+                }}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Reset ke Semester Saat Ini
+              </button>
+            </div>
+          </div>
+          {gradeData?.filterAcademicYear && gradeData?.filterSemester && (
+            <div className="mt-3 text-sm text-gray-600">
+              Menampilkan nilai untuk: <span className="font-semibold">{gradeData.filterAcademicYear} - {gradeData.filterSemester}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4 overflow-y-auto">
@@ -187,16 +269,20 @@ export default function StudentGradeView() {
                               </p>
 
                               <div className="flex items-center space-x-4 text-sm text-gray-500">
-                                <div className="flex items-center space-x-1">
-                                  <span>👥</span>
-                                  <span>{assignment.team.name}</span>
-                                </div>
-                                <div>
-                                  Due:{' '}
-                                  {new Date(
-                                    assignment.assignmentDueDate
-                                  ).toLocaleDateString()}
-                                </div>
+                                {assignment.team && assignment.team.id && (
+                                  <div className="flex items-center space-x-1">
+                                    <span>👥</span>
+                                    <span>{assignment.team.name}</span>
+                                  </div>
+                                )}
+                                {assignment.assignmentDueDate && (
+                                  <div>
+                                    Due:{' '}
+                                    {new Date(
+                                      assignment.assignmentDueDate
+                                    ).toLocaleDateString()}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -223,21 +309,23 @@ export default function StudentGradeView() {
                       {expandedAssignments.has(assignment.id) && (
                         <div className="p-4 bg-white space-y-4">
                           {/* Team Members */}
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <h5 className="font-semibold text-blue-900 mb-2 flex items-center">
-                              <span className="mr-2">👥</span> Team Members
-                            </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {assignment.team.members.map((member) => (
-                                <span
-                                  key={member.id}
-                                  className="bg-white px-3 py-1 rounded-full text-sm text-gray-700 border border-blue-200"
-                                >
-                                  {member.name}
-                                </span>
-                              ))}
+                          {assignment.team && assignment.team.id && assignment.team.members && assignment.team.members.length > 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <h5 className="font-semibold text-blue-900 mb-2 flex items-center">
+                                <span className="mr-2">👥</span> Team Members
+                              </h5>
+                              <div className="flex flex-wrap gap-2">
+                                {assignment.team.members.map((member) => (
+                                  <span
+                                    key={member.id}
+                                    className="bg-white px-3 py-1 rounded-full text-sm text-gray-700 border border-blue-200"
+                                  >
+                                    {member.name}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Grade Components */}
                           <div>
