@@ -10,7 +10,7 @@ export default function ChatLayout({
 }) {
   const pathname = usePathname();
   
-  // Extract courseId from pathname like /chat/artificial-intelligence
+  // Extract courseId from pathname
   const courseId = pathname.split('/chat/')[1];
   
   console.log("Chat Layout - pathname:", pathname);
@@ -27,11 +27,6 @@ export default function ChatLayout({
       <div className="gap-6 h-full">
         {/* Chat Room */}
         <div className="flex flex-col h-full p-4 bg-white rounded-lg">
-          {/* <div className="bg-green-500 text-white p-4 rounded-lg mb-4">
-            <h1 className="text-2xl font-bold">✓ Chat Layout Working!</h1>
-            <p>CourseId: {courseId}</p>
-          </div> */}
-
           {/* Header */}
           <div className="border-b border-gray-300 pb-3 mb-4">
             <h2 className="text-2xl font-bold text-gray-800">{courseTitle} Discussion</h2>

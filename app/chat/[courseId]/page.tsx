@@ -12,7 +12,6 @@ export default async function ChatRoomPage({
 
   return (
     <div className="flex flex-col h-full p-4">
-      {/* BIG DEBUG BOX - If you see this, the route works! */}
       <div className="bg-green-500 text-white p-6 rounded-lg mb-4 text-center">
         <h1 className="text-3xl font-bold">✓ SUCCESS!</h1>
         <p className="text-xl mt-2">Route is working: {courseId}</p>

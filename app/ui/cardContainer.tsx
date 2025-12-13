@@ -57,7 +57,7 @@ export default function CardContainer() {
         <CourseCard
           key={course.id}
           id={course.id}
-          title={course.title}           // used for slug
+          title={course.title}
           desc={course.description || "-"}
         />
 

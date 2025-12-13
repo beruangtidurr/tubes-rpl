@@ -52,9 +52,6 @@ export default function LoginPage() {
       <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">
         Login
       </h1>
-      <p className="text-sm text-gray-500 mb-6 text-center">
-        Masuk sebagai Mahasiswa, Dosen, atau Admin
-      </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -89,14 +86,6 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 text-xs text-gray-500">
-        <p>Dummy akun untuk testing:</p>
-        <ul className="list-disc list-inside">
-          <li>Mahasiswa: mahasiswa@example.com / password123</li>
-          <li>Dosen: dosen@example.com / password123</li>
-          <li>Admin: admin@example.com / password123</li>
-        </ul>
-      </div>
     </div>
   );
 }
