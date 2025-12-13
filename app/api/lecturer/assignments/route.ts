@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { getCurrentAcademicYearSemester } from "@/lib/academicYear";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest) {
         a.max_members_per_team,
         a.assignment_due_date,
         a.grading_due_date,
+        a.academic_year,
+        a.semester,
         a.created_at,
         c.title as course_title,
         COUNT(DISTINCT t.id) as teams_created
@@ -56,8 +59,8 @@ export async function GET(req: NextRequest) {
       JOIN course_assignments ca ON ca.course_id = c.id
       LEFT JOIN teams t ON t.assignment_id = a.id
       WHERE ca.lecturer_id = ${authCheck.userId}
-      GROUP BY a.id, c.title
-      ORDER BY a.created_at DESC
+      GROUP BY a.id, c.title, a.academic_year, a.semester
+      ORDER BY a.academic_year DESC, a.semester DESC, a.created_at DESC
     `;
 
     return NextResponse.json({
@@ -125,6 +128,9 @@ export async function POST(req: NextRequest) {
     const formattedAssignmentDueDate = assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null;
     const formattedGradingDueDate = gradingDueDate ? new Date(gradingDueDate).toISOString() : null;
 
+    // Get current academic year and semester
+    const { academicYear, semester } = getCurrentAcademicYearSemester();
+
     const assignmentResult = await sql`
       INSERT INTO assignments (
         course_id, 
@@ -134,6 +140,8 @@ export async function POST(req: NextRequest) {
         max_members_per_team,
         assignment_due_date,
         grading_due_date,
+        academic_year,
+        semester,
         created_by
       )
       VALUES (
@@ -144,6 +152,8 @@ export async function POST(req: NextRequest) {
         ${maxMembersPerTeam},
         ${formattedAssignmentDueDate},
         ${formattedGradingDueDate},
+        ${academicYear},
+        ${semester},
         ${authCheck.userId}
       )
       RETURNING id
