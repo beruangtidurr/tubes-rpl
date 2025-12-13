@@ -110,7 +110,7 @@ export default function ExpandableAssignmentCard({ assignment }: Props) {
         body: JSON.stringify({
           userId: user.id,
           userName: user.fullName || "Unknown User",
-          assignmentId: assignment.id, // FIXED: Added assignmentId
+          assignmentId: assignment.id, // Added assignmentId
         }),
       });
 
