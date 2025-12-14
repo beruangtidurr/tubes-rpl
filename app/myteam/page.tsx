@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 type TeamMember = {
   id: number;
@@ -118,9 +119,11 @@ export default function MyTeamPage() {
                           </div>
 
                           {/* Action Button */}
-                          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                            Contact
-                          </button>
+                          <Link href={`mailto:${member.email}`}>
+                            <div className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                              Contact
+                            </div>
+                          </Link>
                         </div>
                       ))}
                     </div>
