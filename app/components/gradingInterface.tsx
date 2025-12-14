@@ -86,8 +86,11 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   const [overallFeedback, setOverallFeedback] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   
-  // Store all team grades for calculation - can be either component grades or calculated totals
+  // Store all team grades for calculation
   const [allTeamGrades, setAllTeamGrades] = useState<Record<number, any>>({});
+  const [isPastSemester, setIsPastSemester] = useState(false);
+  const [academicYear, setAcademicYear] = useState<string | null>(null);
+  const [semester, setSemester] = useState<string | null>(null);
 
   useEffect(() => {
     fetchComponents();
@@ -128,6 +131,11 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
       console.log("Grades raw response:", text.substring(0, 200));
       
       const data = JSON.parse(text);
+      
+      // Check if this is a past semester
+      setIsPastSemester(data.isPastSemester || false);
+      setAcademicYear(data.academicYear || null);
+      setSemester(data.semester || null);
       
       const teamGrade = data.teamGrades?.find((g: any) => g.component_id === selectedComponent?.id);
       if (teamGrade) {
@@ -309,8 +317,32 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
             ← Back to Assignments
           </button>
           <h2 className="text-2xl font-bold">Grade: {assignmentTitle}</h2>
+          {academicYear && semester && (
+            <p className="text-sm text-gray-600 mt-1">
+              {academicYear} - {semester}
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Warning for past semester */}
+      {isPastSemester && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <span className="text-yellow-400 text-xl">⚠️</span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>Semester Lalu - Hanya Baca</strong>
+                <br />
+                Assignment ini berasal dari semester sebelumnya ({academicYear} - {semester}). 
+                Nilai tidak dapat diubah karena semester sudah berakhir. Anda hanya dapat melihat nilai yang sudah ada.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grade Components Setup */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -507,7 +539,8 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
                       max={selectedComponent.max_score}
                       min="0"
                       step="0.5"
-                      className="w-full border rounded px-3 py-2"
+                      disabled={isPastSemester}
+                      className="w-full border rounded px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -515,7 +548,8 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
                     <textarea
                       value={teamNotes}
                       onChange={(e) => setTeamNotes(e.target.value)}
-                      className="w-full border rounded px-3 py-2"
+                      disabled={isPastSemester}
+                      className="w-full border rounded px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       rows={3}
                       placeholder="Feedback for this component..."
                     />
@@ -541,7 +575,8 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
                             max={selectedComponent.max_score}
                             min="0"
                             step="0.5"
-                            className="w-full border rounded px-3 py-2"
+                            disabled={isPastSemester}
+                            className="w-full border rounded px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                         </div>
                         <div>
@@ -550,7 +585,8 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
                             type="text"
                             value={individualGrades[member.id]?.notes || ""}
                             onChange={(e) => updateIndividualGrade(member.id, "notes", e.target.value)}
-                            className="w-full border rounded px-3 py-2"
+                            disabled={isPastSemester}
+                            className="w-full border rounded px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Individual feedback..."
                           />
                         </div>
@@ -565,7 +601,8 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
                 <textarea
                   value={overallFeedback}
                   onChange={(e) => setOverallFeedback(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
+                  disabled={isPastSemester}
+                  className="w-full border rounded px-3 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   rows={4}
                   placeholder="General comments about the team's performance..."
                 />
@@ -573,10 +610,10 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
 
               <button
                 onClick={handleSaveGrades}
-                disabled={isSaving}
-                className="w-full py-3 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:bg-gray-400"
+                disabled={isSaving || isPastSemester}
+                className="w-full py-3 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isSaving ? "Saving..." : "Save Grades"}
+                {isSaving ? "Saving..." : isPastSemester ? "Tidak Dapat Menyimpan (Semester Lalu)" : "Save Grades"}
               </button>
             </>
           )}

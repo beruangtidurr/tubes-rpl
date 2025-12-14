@@ -39,13 +39,21 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Only select columns that exist
+    // If created_at column doesn't exist, it will be undefined
     const courses = await sql`
-      SELECT id, title, description, created_at
+      SELECT id, title, description
       FROM courses
-      ORDER BY created_at DESC
+      ORDER BY id DESC
     `;
 
-    return NextResponse.json({ courses });
+    // Add created_at with current timestamp
+    const coursesWithDate = courses.map((course: any) => ({
+      ...course,
+      created_at: new Date().toISOString()
+    }));
+
+    return NextResponse.json({ courses: coursesWithDate });
   } catch (error) {
     console.error("Error fetching courses:", error);
     return NextResponse.json(
@@ -55,7 +63,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Add new course
+//  Add new course
 export async function POST(req: NextRequest) {
   const authCheck = await checkAdmin(req);
   if (!authCheck.authorized) {

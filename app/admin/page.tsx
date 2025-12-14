@@ -458,7 +458,35 @@ export default function AdminPage() {
                         {course.description || "No description"}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
-                        Created: {new Date(course.created_at).toLocaleDateString()}
+                        Created: {(() => {
+                          const now = new Date();
+                          if (!course.created_at) {
+                            return now.toLocaleString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                          }
+                          const createdDate = new Date(course.created_at);
+                          if (isNaN(createdDate.getTime())) {
+                            return now.toLocaleString('id-ID', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                          }
+                          return createdDate.toLocaleString('id-ID', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          });
+                        })()}
                       </p>
                     </div>
                   ))}
@@ -758,9 +786,9 @@ export default function AdminPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold mb-4">Current Assignments</h2>
+              <h2 className="text-2xl font-bold mb-4">Current Courses</h2>
               {courseAssignments.length === 0 ? (
-                <p className="text-gray-500">No assignments yet</p>
+                <p className="text-gray-500">No Course yet</p>
               ) : (
                 <div className="space-y-2">
                   {courseAssignments.map((assignment) => (

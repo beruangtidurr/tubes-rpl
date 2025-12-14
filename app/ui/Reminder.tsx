@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { format, isToday, isTomorrow, differenceInDays } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 interface Assignment {
   id: string;
@@ -12,10 +13,20 @@ interface Assignment {
   priority?: 'high' | 'medium' | 'low';
 }
 
+const slugify = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "")
+    .replace(/^-+|-+$/g, "");
+};
+
 export default function Reminder() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetchAssignments();
@@ -125,25 +136,35 @@ export default function Reminder() {
         </div>
       ) : (
         <>
-          {assignments.map((assignment, index) => (
-            <div
-              key={assignment.id}
-              className={`bg-white p-3 rounded-lg shadow border-l-4 ${getBorderColor(
-                assignment.dueDate
-              )} mb-3`}
-            >
-              <p className="font-semibold">
-                {index === 0 ? "Today's Focus:" : 'Upcoming:'}
-              </p>
-              <p className="text-sm text-gray-800">{assignment.title}</p>
-              {assignment.courseName && (
-                <p className="text-xs text-gray-500 mt-1">{assignment.courseName}</p>
-              )}
-              <p className="text-xs text-gray-600 mt-1">
-                Due: {formatDueDate(assignment.dueDate)}
-              </p>
-            </div>
-          ))}
+          {assignments.map((assignment, index) => {
+            const handleCardClick = () => {
+              if (assignment.courseName) {
+                const slug = slugify(assignment.courseName);
+                router.push(`/courses/${slug}`);
+              }
+            };
+
+            return (
+              <div
+                key={assignment.id}
+                onClick={handleCardClick}
+                className={`bg-white p-3 rounded-lg shadow border-l-4 ${getBorderColor(
+                  assignment.dueDate
+                )} mb-3 cursor-pointer hover:bg-gray-50 transition-colors`}
+              >
+                <p className="font-semibold">
+                  {index === 0 ? "Today's Focus:" : 'Upcoming:'}
+                </p>
+                <p className="text-sm text-gray-800">{assignment.title}</p>
+                {assignment.courseName && (
+                  <p className="text-xs text-gray-500 mt-1">{assignment.courseName}</p>
+                )}
+                <p className="text-xs text-gray-600 mt-1">
+                  Due: {formatDueDate(assignment.dueDate)}
+                </p>
+              </div>
+            );
+          })}
         </>
       )}
     </div>

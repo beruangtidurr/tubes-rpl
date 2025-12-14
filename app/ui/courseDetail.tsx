@@ -1,7 +1,7 @@
 // app/ui/courseDetail.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import dummyImage from "@/app/dummy-post-horisontal.jpg";
 import { useCourse } from "@/app/context/CourseContext";
@@ -18,33 +18,47 @@ export default function CourseDetail() {
   const { selectedCourse, setSelectedCourse, selectedAssignment, setSelectedAssignment } =
     useCourse();
   const [expandedGroups, setExpandedGroups] = useState<number[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!selectedCourse) return null;
 
-  // Dummy data kelompok - nanti ganti dengan data real dari API
-  const groups: Group[] = [
-    {
-      id: 1,
-      name: "Kelompok 1",
-      members: 3,
-      maxMembers: 5,
-      memberList: ["John Doe", "Jane Smith", "Bob Johnson"],
-    },
-    {
-      id: 2,
-      name: "Kelompok 2",
-      members: 3,
-      maxMembers: 5,
-      memberList: ["John Doe", "Alice Brown", "Charlie Wilson"],
-    },
-    {
-      id: 3,
-      name: "Kelompok 3",
-      members: 2,
-      maxMembers: 5,
-      memberList: ["David Lee", "Emma Davis"],
-    },
-  ];
+  // Fetch teams from API when assignment is selected
+  useEffect(() => {
+    if (!selectedAssignment) {
+      setGroups([]);
+      return;
+    }
+
+    const fetchTeams = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/assignments/${selectedAssignment}/teams`);
+        if (!response.ok) throw new Error("Failed to fetch teams");
+        const data = await response.json();
+        
+        // Transform API data to Group format
+        const transformedGroups: Group[] = (data.teams || []).map((team: any) => ({
+          id: team.id,
+          name: team.name,
+          members: team.memberCount || 0,
+          maxMembers: team.maxMembers,
+          memberList: (team.members || []).map((member: any) => member.user_name),
+        }));
+        
+        setGroups(transformedGroups);
+      } catch (err) {
+        setError("Failed to load teams");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeams();
+  }, [selectedAssignment]);
 
   const toggleGroup = (groupId: number) => {
     setExpandedGroups((prev) =>
@@ -88,7 +102,14 @@ export default function CourseDetail() {
       {/* Kelompok Section */}
       <div className="space-y-3">
         <h3 className="text-xl font-bold text-gray-800 mb-3">Kelompok</h3>
-        {groups.map((group) => {
+        {loading ? (
+          <p className="text-gray-500">Loading teams...</p>
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : groups.length === 0 ? (
+          <p className="text-gray-500">No teams available yet.</p>
+        ) : (
+          groups.map((group) => {
           const isExpanded = expandedGroups.includes(group.id);
           return (
             <div
@@ -124,7 +145,8 @@ export default function CourseDetail() {
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );

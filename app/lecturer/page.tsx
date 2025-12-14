@@ -88,7 +88,7 @@ function GradingInterface({ assignmentId, assignmentTitle, teams, onBack }: Grad
   const [overallFeedback, setOverallFeedback] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   
-  // Store all team grades for calculation - can be either component grades or calculated totals
+  // Store all team grades for calculation
   const [allTeamGrades, setAllTeamGrades] = useState<Record<number, any>>({});
 
   useEffect(() => {
@@ -596,6 +596,7 @@ export default function LecturerPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "teams" | "grading">("list");
   const [teamGradesData, setTeamGradesData] = useState<Record<number, any>>({});
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState<number | null>(null);
 
   // Create assignment form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -613,10 +614,22 @@ export default function LecturerPage() {
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Team member management state
+  const [students, setStudents] = useState<Array<{id: number; name: string; email: string; current_team_id: number | null; current_team_name: string | null}>>([]);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [selectedTeamForAdd, setSelectedTeamForAdd] = useState<number | null>(null);
+  const [isManagingTeam, setIsManagingTeam] = useState(false);
+
   useEffect(() => {
     fetchCourses();
     fetchAssignments();
   }, []);
+
+  useEffect(() => {
+    if (selectedAssignment && viewMode === "teams") {
+      fetchStudentsForAssignment();
+    }
+  }, [selectedAssignment, viewMode]);
 
   useEffect(() => {
     if (selectedAssignment) {
@@ -656,6 +669,123 @@ export default function LecturerPage() {
       }
     } catch (error) {
       console.error("Error fetching teams:", error);
+    }
+  };
+
+  const fetchStudentsForAssignment = async () => {
+    if (!selectedAssignment) return;
+    
+    try {
+      const res = await fetch(`/api/lecturer/assignments/${selectedAssignment}/students`);
+      const data = await res.json();
+      setStudents(data.students || []);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
+  const handleAddStudentToTeam = async (teamId: number, userId: number, userName: string) => {
+    setIsManagingTeam(true);
+    try {
+      const res = await fetch(`/api/lecturer/teams/${teamId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to add student to team");
+        return;
+      }
+
+      // Refresh teams and students
+      if (selectedAssignment) {
+        await fetchTeams(selectedAssignment);
+        await fetchStudentsForAssignment();
+      }
+      setShowAddStudentModal(false);
+      setSelectedTeamForAdd(null);
+    } catch (error) {
+      console.error("Error adding student to team:", error);
+      alert("Network error. Please try again.");
+    } finally {
+      setIsManagingTeam(false);
+    }
+  };
+
+  const handleRemoveStudentFromTeam = async (teamId: number, userId: number) => {
+    if (!confirm("Are you sure you want to remove this student from the team?")) {
+      return;
+    }
+
+    setIsManagingTeam(true);
+    try {
+      const res = await fetch(`/api/lecturer/teams/${teamId}/members?userId=${userId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to remove student from team");
+        return;
+      }
+
+      // Refresh teams and students
+      if (selectedAssignment) {
+        await fetchTeams(selectedAssignment);
+        await fetchStudentsForAssignment();
+      }
+    } catch (error) {
+      console.error("Error removing student from team:", error);
+      alert("Network error. Please try again.");
+    } finally {
+      setIsManagingTeam(false);
+    }
+  };
+
+  const handleMoveStudentToTeam = async (fromTeamId: number, toTeamId: number, userId: number, userName: string) => {
+    setIsManagingTeam(true);
+    try {
+      // Remove from old team
+      const removeRes = await fetch(`/api/lecturer/teams/${fromTeamId}/members?userId=${userId}`, {
+        method: "DELETE",
+      });
+
+      if (!removeRes.ok) {
+        const removeData = await removeRes.json();
+        alert(removeData.error || "Failed to remove student from previous team");
+        return;
+      }
+
+      // Add to new team
+      const addRes = await fetch(`/api/lecturer/teams/${toTeamId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, userName }),
+      });
+
+      const addData = await addRes.json();
+
+      if (!addRes.ok) {
+        alert(addData.error || "Failed to add student to new team");
+        return;
+      }
+
+      // Refresh teams and students
+      if (selectedAssignment) {
+        await fetchTeams(selectedAssignment);
+        await fetchStudentsForAssignment();
+      }
+      setShowAddStudentModal(false);
+      setSelectedTeamForAdd(null);
+    } catch (error) {
+      console.error("Error moving student:", error);
+      alert("Network error. Please try again.");
+    } finally {
+      setIsManagingTeam(false);
     }
   };
 
@@ -939,7 +1069,10 @@ export default function LecturerPage() {
             My Courses
           </button>
           <button
-            onClick={() => setActiveTab("assignments")}
+            onClick={() => {
+              setActiveTab("assignments");
+              // Don't reset filter when clicking tab - only reset when explicitly clearing
+            }}
             className={`px-6 py-3 font-medium transition ${
               activeTab === "assignments"
                 ? "border-b-2 border-blue-500 text-blue-600"
@@ -960,7 +1093,14 @@ export default function LecturerPage() {
               ) : (
                 <div className="grid gap-4">
                   {courses.map((course) => (
-                    <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                    <div 
+                      key={course.id} 
+                      onClick={() => {
+                        setSelectedCourseFilter(course.id);
+                        setActiveTab("assignments");
+                      }}
+                      className="border rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                    >
                       <h3 className="font-bold text-lg text-blue-600">{course.title}</h3>
                       <p className="text-gray-600 text-sm mt-2">
                         {course.description || "No description"}
@@ -1043,23 +1183,180 @@ export default function LecturerPage() {
                             </div>
                           )}
 
-                          <div className="space-y-2">
+                          <div className="space-y-2 mb-3">
                             {team.members.length === 0 ? (
                               <p className="text-sm text-gray-500 italic">No members yet</p>
                             ) : (
                               team.members.map((member) => (
-                                <div key={member.id} className="bg-white rounded p-2 text-sm border">
-                                  <p className="font-medium">{member.user_name}</p>
-                                  <p className="text-xs text-gray-500">
-                                    Joined: {new Date(member.joined_at).toLocaleDateString()}
-                                  </p>
+                                <div key={member.id} className="bg-white rounded p-2 text-sm border flex justify-between items-center">
+                                  <div>
+                                    <p className="font-medium">{member.user_name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Joined: {new Date(member.joined_at).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveStudentFromTeam(team.id, member.user_id)}
+                                    disabled={isManagingTeam}
+                                    className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                                    title="Remove from team"
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
                               ))
                             )}
                           </div>
+                          
+                          {/* Add Student Button */}
+                          {team.current_members < team.max_members && (
+                            <button
+                              onClick={() => {
+                                setSelectedTeamForAdd(team.id);
+                                setShowAddStudentModal(true);
+                              }}
+                              disabled={isManagingTeam}
+                              className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              + Add Student
+                            </button>
+                          )}
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Add Student Modal */}
+                {showAddStudentModal && selectedTeamForAdd && (
+                  <div 
+                    className="fixed inset-0 bg-gradient-to-br from-gray-900/40 via-gray-800/30 to-gray-900/40 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-200"
+                    onClick={(e) => {
+                      // Close modal when clicking on backdrop
+                      if (e.target === e.currentTarget) {
+                        setShowAddStudentModal(false);
+                        setSelectedTeamForAdd(null);
+                      }
+                    }}
+                  >
+                    <div 
+                      className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 scale-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-200">
+                        <div>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-1">Add Student to Team</h3>
+                          <p className="text-sm text-gray-500">
+                            Select a student to add to <span className="font-semibold text-blue-600">{teams.find(t => t.id === selectedTeamForAdd)?.name}</span>
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowAddStudentModal(false);
+                            setSelectedTeamForAdd(null);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1.5 transition-colors"
+                          title="Close"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                        {students.filter(s => {
+                          // Show students who are not in any team, or are in a different team
+                          return !s.current_team_id || s.current_team_id !== selectedTeamForAdd;
+                        }).length === 0 ? (
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                              </svg>
+                            </div>
+                            <p className="text-gray-500 font-medium">No available students</p>
+                            <p className="text-gray-400 text-sm mt-1">All students are already assigned to teams</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {students
+                              .filter(s => {
+                                // Show students who are not in any team, or are in a different team
+                                return !s.current_team_id || s.current_team_id !== selectedTeamForAdd;
+                              })
+                              .map((student) => (
+                                <div
+                                  key={student.id}
+                                  className="group border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-blue-300 hover:shadow-md bg-white transition-all duration-200"
+                                >
+                                  <div className="flex items-start space-x-3 flex-1 min-w-0">
+                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                      {student.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-gray-900 truncate">{student.name}</p>
+                                      <p className="text-xs text-gray-500 mt-0.5 truncate">{student.email}</p>
+                                      {student.current_team_name && (
+                                        <div className="mt-2 flex items-center space-x-1">
+                                          <svg className="w-3 h-3 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                          </svg>
+                                          <p className="text-xs text-orange-600 font-medium">
+                                            Currently in <span className="font-bold">{student.current_team_name}</span>
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      if (student.current_team_id && student.current_team_id !== selectedTeamForAdd) {
+                                        // Move from one team to another
+                                        handleMoveStudentToTeam(
+                                          student.current_team_id,
+                                          selectedTeamForAdd!,
+                                          student.id,
+                                          student.name
+                                        );
+                                      } else {
+                                        // Just add to team
+                                        handleAddStudentToTeam(
+                                          selectedTeamForAdd!,
+                                          student.id,
+                                          student.name
+                                        );
+                                      }
+                                    }}
+                                    disabled={isManagingTeam}
+                                    className={`ml-4 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+                                      student.current_team_id && student.current_team_id !== selectedTeamForAdd
+                                        ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+                                    } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md`}
+                                  >
+                                    {isManagingTeam ? (
+                                      <span className="flex items-center">
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Processing...
+                                      </span>
+                                    ) : (
+                                      student.current_team_id && student.current_team_id !== selectedTeamForAdd
+                                        ? "Move Here"
+                                        : "Add to Team"
+                                    )}
+                                  </button>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1358,12 +1655,56 @@ export default function LecturerPage() {
 
                 {/* Assignments List */}
                 <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-2xl font-bold mb-4">My Assignments</h2>
-                  {assignments.length === 0 ? (
-                    <p className="text-gray-500">No assignments created yet</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {assignments.map((assignment) => (
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold">My Assignments</h2>
+                    {selectedCourseFilter && (
+                      <button
+                        onClick={() => setSelectedCourseFilter(null)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                      >
+                        Clear Filter (Show All)
+                      </button>
+                    )}
+                  </div>
+                  {selectedCourseFilter && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-sm text-blue-800">
+                        Showing assignments for: <strong>{courses.find(c => c.id === selectedCourseFilter)?.title}</strong>
+                      </p>
+                    </div>
+                  )}
+                  {(() => {
+                    let filteredAssignments = assignments;
+                    
+                    if (selectedCourseFilter) {
+                      const selectedCourse = courses.find(c => Number(c.id) === Number(selectedCourseFilter));
+                      if (selectedCourse) {
+                        // Filter by course_id (ensure both are numbers) or course_title (string comparison) as fallback
+                        filteredAssignments = assignments.filter(a => {
+                          const courseIdMatch = Number(a.course_id) === Number(selectedCourseFilter);
+                          const courseTitleMatch = a.course_title && selectedCourse.title && 
+                            a.course_title.toLowerCase().trim() === selectedCourse.title.toLowerCase().trim();
+                          return courseIdMatch || courseTitleMatch;
+                        });
+                      } else {
+                        // If course not found, show all assignments
+                        filteredAssignments = assignments;
+                      }
+                    }
+                    
+                    if (filteredAssignments.length === 0) {
+                      return (
+                        <p className="text-gray-500">
+                          {selectedCourseFilter 
+                            ? "No assignments found for this course" 
+                            : "No assignments created yet"}
+                        </p>
+                      );
+                    }
+                    
+                    return (
+                      <div className="space-y-4">
+                        {filteredAssignments.map((assignment) => (
                         <div key={assignment.id} className="border rounded-lg p-4 hover:shadow-md transition">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
@@ -1436,9 +1777,10 @@ export default function LecturerPage() {
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}

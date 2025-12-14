@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { isPastSemester } from "@/lib/academicYear";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -57,6 +58,14 @@ export async function GET(
       );
     }
 
+    // Get assignment info to include academic year and semester
+    const assignmentInfo = await sql`
+      SELECT a.academic_year, a.semester
+      FROM assignments a
+      JOIN teams t ON t.assignment_id = a.id
+      WHERE t.id = ${teamId}
+    `;
+
     // Get team grades
     const teamGrades = await sql`
       SELECT 
@@ -93,10 +102,17 @@ export async function GET(
       WHERE team_id = ${teamId}
     `;
 
+    const isPast = assignmentInfo.length > 0 
+      ? isPastSemester(assignmentInfo[0].academic_year, assignmentInfo[0].semester)
+      : false;
+
     return NextResponse.json({
       teamGrades,
       studentGrades,
-      feedback: feedback[0] || null
+      feedback: feedback[0] || null,
+      academicYear: assignmentInfo[0]?.academic_year || null,
+      semester: assignmentInfo[0]?.semester || null,
+      isPastSemester: isPast
     });
   } catch (error) {
     console.error("Error fetching grades:", error);
@@ -129,7 +145,7 @@ export async function POST(
 
     // Verify lecturer has access to this team
     const teamCheck = await sql`
-      SELECT t.id, t.assignment_id
+      SELECT t.id, t.assignment_id, a.academic_year, a.semester
       FROM teams t
       JOIN assignments a ON a.id = t.assignment_id
       JOIN course_assignments ca ON ca.course_id = a.course_id
@@ -144,6 +160,16 @@ export async function POST(
     }
 
     const assignmentId = teamCheck[0].assignment_id;
+    const academicYear = teamCheck[0].academic_year;
+    const semester = teamCheck[0].semester;
+
+    // Check if this is a past semester, cant edit
+    if (isPastSemester(academicYear, semester)) {
+      return NextResponse.json(
+        { error: "Cannot edit grades for past semesters. This assignment belongs to a previous semester." },
+        { status: 403 }
+      );
+    }
 
     // If applyToAll is true, save as team grade
     if (applyToAll && componentId && score !== undefined) {
